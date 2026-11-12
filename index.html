@@ -1,0 +1,1991 @@
+<!DOCTYPE html>
+<html lang="bn-IN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#fef08a">
+<title id="docTitle">Public Cab — Premium Ride & Parcel Delivery</title>
+
+<!-- PWA Standard Meta Tags -->
+<link rel="manifest" id="manifestPlaceholder" href="manifest.json">
+<link id="dynamicFavicon" rel="icon" href="https://cdn-icons-png.flaticon.com/512/727/727245.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+
+<!-- External Libraries (Tailwind CSS, FontAwesome 6, Leaflet Maps) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Firebase SDKs (Compat Version 9.23.0) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body,html{margin:0;padding:0;background:#fef08a;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1e3a8a;overscroll-behavior-y:none}
+#app{max-width:480px;min-height:100vh;margin:0 auto;background:#fef08a;position:relative;overflow-x:hidden;box-shadow:0 0 50px rgba(0,0,0,0.15);padding-bottom:90px}
+
+#mapContainer{display:none;transition:all 0.3s ease}
+#mapContainer.show{display:block}
+#map{height:220px;width:100%;border-radius:18px;position:relative;z-index:1;border:2px solid #2563eb;box-shadow:0 4px 20px rgba(37,99,235,0.2)}
+
+.hidden{display:none!important}
+.card{background:#ffffff;border:1.5px solid #2563eb;border-radius:20px;padding:14px;box-shadow:0 4px 15px rgba(37,99,235,0.15);color:#1e3a8a}
+.field{width:100%;padding:11px 14px;border:1.5px solid #2563eb;border-radius:12px;background:#fefce8;outline:none;font-size:13px;font-weight:700;color:#1e3a8a;transition:all 0.2s}
+.field:focus{border-color:#1d4ed8;box-shadow:0 0 0 3px rgba(37,99,235,0.25);background:#ffffff}
+
+.btn{border:0;border-radius:12px;padding:11px 16px;font-weight:800;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:all 0.15s ease}
+.btn:active{transform:scale(0.97)}
+.btn-blue{background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#ffffff;box-shadow:0 4px 14px rgba(37,99,235,0.4)}
+.btn-yellow{background:linear-gradient(135deg,#facc15,#eab308);color:#1e3a8a;box-shadow:0 4px 14px rgba(234,179,8,0.4)}
+.btn-green{background:#10b981;color:#ffffff}
+.btn-red{background:#ef4444;color:#ffffff}
+
+.cat-card{border:1.5px solid #2563eb;border-radius:14px;padding:8px 4px;text-align:center;background:#ffffff;cursor:pointer;transition:all 0.2s;color:#1e3a8a}
+.cat-card.active{background:#2563eb;border-color:#1d4ed8;color:#ffffff;transform:scale(1.02);box-shadow:0 4px 12px rgba(37,99,235,0.3)}
+.cat-card.active .text-slate-600{color:#e0e7ff!important}
+.vehicle-photo{height:46px;width:100%;object-fit:contain;border-radius:8px;margin-bottom:4px}
+
+.modal{position:fixed;inset:0;background:rgba(30,58,138,0.85);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:flex-end;justify-content:center}
+.modal-inner{width:100%;max-width:480px;max-height:92vh;overflow-y:auto;background:#fefce8;border-radius:24px 24px 0 0;padding:20px;box-shadow:0 -10px 40px rgba(0,0,0,0.4);border-top:3px solid #2563eb;color:#1e3a8a}
+
+.custom-popup{position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}
+.custom-popup-content{background:#ffffff;border:3px solid #2563eb;border-radius:24px;padding:24px;width:100%;max-width:340px;text-align:center;position:relative;box-shadow:0 20px 40px rgba(0,0,0,0.4);color:#1e3a8a}
+
+.autocomplete-box{position:absolute;z-index:50;width:100%;max-height:180px;overflow-y:auto;background:#ffffff;border:1.5px solid #2563eb;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,0.2)}
+.autocomplete-item{padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;border-bottom:1px solid #e0e7ff;color:#1e3a8a}
+.autocomplete-item:hover{background:#2563eb;color:#ffffff}
+
+#parcelFields, #lorryFields, #ambulanceFields{display:none}
+#parcelFields.show, #lorryFields.show, #ambulanceFields.show{display:grid}
+
+.chat-widget-btn{position:fixed;bottom:75px;right:15px;z-index:99;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 20px rgba(37,99,235,0.5);cursor:pointer}
+
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#ffffff;color:#1e3a8a;display:flex;justify-content:space-around;padding:10px 0;z-index:40;border-top-left-radius:20px;border-top-right-radius:20px;border-top:2px solid #2563eb;box-shadow:0 -4px 15px rgba(37,99,235,0.15)}
+.nav-item{display:flex;flex-direction:column;align-items:center;font-size:10px;font-weight:800;cursor:pointer;color:#64748b}
+.nav-item.active{color:#2563eb}
+.nav-item i{font-size:18px;margin-bottom:2px}
+
+#customerView.booking-locked #customerBookingForm,
+#customerView.booking-locked #categoryBookingCard,
+#customerView.booking-locked #customerInstallControls,
+#customerView.booking-locked #customerHistoryPanel{display:none!important}
+#customerView.booking-locked #mapContainer,
+#customerView.booking-locked #customerRideCard{display:block!important}
+
+.app-topbar{background:#ffe24d;padding:10px 12px 12px;border-bottom:2px solid #2563eb;border-radius:0 0 22px 22px;box-shadow:0 5px 14px rgba(30,58,138,.16);position:relative;z-index:30}
+.brand-row{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:52px}
+.brand-box{display:flex;align-items:center;gap:8px;min-width:0;border:0;background:transparent;padding:0;text-align:left;color:#173b88}
+.brand-box img{width:46px;height:46px;flex:0 0 46px;border-radius:14px;object-fit:cover;background:#fff;border:2px solid #2563eb}
+.brand-text{min-width:0;line-height:1.05}.brand-text span{display:block;font-size:8px;font-weight:900;letter-spacing:.5px}.brand-text strong{display:block;font-size:18px;font-weight:950;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto}
+.round-action{width:34px;height:34px;border-radius:50%;border:2px solid #2563eb;background:#fff;color:#2563eb;font-size:14px;display:flex;align-items:center;justify-content:center}
+.role-switch{display:flex;background:#fff;border:1.5px solid #2563eb;border-radius:18px;padding:2px}
+.role-switch button{border:0;background:transparent;color:#173b88;font-weight:900;font-size:10px;padding:7px 8px;border-radius:14px;cursor:pointer}
+.role-switch button.bg-blue-600{background:#2563eb!important;color:#fff!important}
+
+.app-banner{margin-top:9px!important;min-height:112px!important;border-radius:15px!important;overflow:hidden;background:#fff;border:2px solid #2563eb!important}
+.banner-slide img{height:108px!important;width:100%!important;object-fit:cover!important;display:block}
+.banner-empty{height:108px;width:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:15px;font-size:11px;font-weight:900;color:#1e3a8a;background:linear-gradient(135deg,#fff,#fef3c7)}
+
+.location-strip{margin-top:9px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.gps-mini{position:absolute;right:4px;top:4px;width:30px;height:30px;border:0;border-radius:8px;background:#2563eb;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Splash Screen with Instant Logo Display -->
+  <div id="splash" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-yellow-300 text-blue-950 transition-opacity duration-700">
+    <div class="w-24 h-24 rounded-3xl border-2 border-blue-600 bg-white p-2 mb-4 flex items-center justify-center shadow-2xl animate-bounce">
+      <img id="splashLogo" class="w-full h-full object-cover rounded-2xl" src="https://cdn-icons-png.flaticon.com/512/727/727245.png" alt="Logo">
+    </div>
+    <h1 id="splashTitle" class="text-3xl font-black tracking-tight text-blue-900 drop-shadow">Public Cab</h1>
+    <p class="text-xs font-bold mt-2 bg-blue-600 text-white px-4 py-1.5 rounded-full shadow border border-blue-300">Ride, Parcel, Shops & Mechanics Service</p>
+  </div>
+
+  <!-- Custom Popup Modal -->
+  <div id="customPopupModal" class="custom-popup hidden">
+    <div class="custom-popup-content space-y-3">
+      <button onclick="closeCustomPopup()" class="absolute top-3 right-4 text-xl font-black text-slate-400 hover:text-blue-900"><i class="fa-solid fa-xmark"></i></button>
+      <div id="customPopupIcon" class="w-12 h-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-2xl mx-auto shadow-inner"><i class="fa-solid fa-circle-check"></i></div>
+      <h3 id="customPopupTitle" class="font-black text-lg text-blue-900">বিজ্ঞপ্তি</h3>
+      <p id="customPopupMessage" class="text-xs font-bold text-slate-700 leading-relaxed"></p>
+      <button class="btn btn-blue w-full text-xs py-3 mt-3 shadow-lg" onclick="closeCustomPopup()">ঠিক আছে (OK)</button>
+    </div>
+  </div>
+
+  <!-- Image Zoom Modal -->
+  <div id="imageZoomModal" class="hidden fixed inset-0 bg-black/85 z-[100000] flex items-center justify-center p-4" onclick="closeZoomModal()">
+    <div class="relative max-w-sm w-full p-2 bg-white rounded-2xl border-4 border-blue-600 text-center">
+      <button onclick="closeZoomModal()" class="absolute top-2 right-3 text-xl font-black text-red-600">×</button>
+      <img id="zoomedImgElement" class="w-full h-auto max-h-[75vh] object-contain rounded-xl mx-auto" src="" alt="Zoomed">
+    </div>
+  </div>
+
+  <!-- Compact branded header -->
+  <header class="app-topbar">
+    <div class="brand-row">
+      <button class="brand-box" type="button" onclick="handleLogoTap()" aria-label="Company logo">
+        <img id="headerLogo" src="https://cdn-icons-png.flaticon.com/512/727/727245.png" alt="Company Logo" onerror="this.style.display='none'">
+        <div class="brand-text"><span>WELCOME</span><strong id="headerBrand">Public Cab</strong></div>
+      </button>
+      <div class="top-actions">
+        <button id="customerAudioToggle" type="button" onclick="togglePanelAudio('customer')" class="round-action" title="Audio on/off"><i class="fa-solid fa-volume-high"></i></button>
+        <div class="role-switch"><button id="tabCust" onclick="switchTab('customer')" class="bg-blue-600 text-white">Customer</button><button id="tabDrv" onclick="switchTab('driver')">Driver</button></div>
+      </div>
+    </div>
+    <div id="bannerCarouselBox" class="app-banner hidden">
+      <div id="bannerContainer" class="flex"></div>
+    </div>
+  </header>
+
+  <!-- Realtime Announcement Ticker -->
+  <div class="bg-yellow-400 text-blue-900 text-[11px] font-black py-1.5 px-3 flex items-center justify-between border-b border-blue-600">
+    <div class="flex items-center overflow-hidden whitespace-nowrap flex-1 mr-2">
+      <i class="fa-solid fa-bullhorn mr-2 text-blue-700"></i>
+      <marquee scrollamount="5"><span id="marqueeText">দোকান ও মেকানিক সার্ভিস সকাল ৮:০০ থেকে রাত ১১:০০ টা পর্যন্ত খোলা থাকে। অ্যাম্বুলেন্স ২৪ ঘণ্টা চালু! Helpline: 9609546435</span></marquee>
+    </div>
+    <button onclick="window.location.reload()" class="bg-blue-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow border border-blue-800 flex items-center gap-1 shrink-0"><i class="fa-solid fa-rotate"></i> Refresh</button>
+  </div>
+
+  <main class="p-3.5 space-y-3.5">
+
+    <!-- ================= CUSTOMER VIEW ================= -->
+    <section id="customerView" class="space-y-3.5">
+
+      <!-- Pickup and Drop locations -->
+      <div class="location-strip">
+        <div class="relative flex items-center"><input id="inputManualPickup" class="field" placeholder="Pickup location" oninput="handleAddressAutoSearch('inputManualPickup')"><button type="button" onclick="getCurrentGpsLocation()" class="gps-mini"><i class="fa-solid fa-crosshairs"></i></button><div id="inputManualPickupSuggestions" class="autocomplete-box hidden"></div></div>
+        <div class="relative"><input id="inputManualDrop" class="field" placeholder="Drop location" oninput="handleAddressAutoSearch('inputManualDrop')"><div id="inputManualDropSuggestions" class="autocomplete-box hidden"></div></div>
+      </div>
+
+      <div id="customerMainDashboard" class="space-y-3.5">
+
+        <div id="mapContainer" class="card space-y-2">
+          <div class="flex justify-between items-center">
+            <b class="text-xs font-black text-blue-900"><i class="fa-solid fa-map-location-dot mr-1"></i> Live GPS Route & ETA</b>
+            <button class="btn btn-blue text-[10px] py-1 px-2.5" onclick="getCurrentGpsLocation()"><i class="fa-solid fa-crosshairs text-yellow-300"></i> Auto GPS</button>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <div id="customerRideCard" class="card hidden space-y-3 bg-white border-2 border-blue-600">
+          <div id="customerSearchState" class="text-center py-4 space-y-2">
+            <div class="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <h3 class="font-black text-blue-900 text-base">Searching Driver...</h3>
+            <p id="customerRideStatusText" class="text-xs font-bold text-slate-600">ড্রাইভার গ্রহণ করার পর বুকিং বাতিল করা যাবে না।</p>
+          </div>
+
+          <div id="customerMatchedState" class="hidden space-y-3">
+            <div class="flex items-center justify-between border-b border-blue-200 pb-2.5">
+              <div class="flex items-center gap-3">
+                <img id="custDriverProfileImg" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="w-12 h-12 rounded-full border-2 border-blue-600 object-cover cursor-pointer" onclick="zoomDriverPhoto(this.src)">
+                <div>
+                  <span class="text-[10px] font-black uppercase text-emerald-600">Driver Confirmed</span>
+                  <h4 id="custDriverName" class="font-black text-base text-blue-900">Driver Name</h4>
+                  <p id="custVehicleDetails" class="text-xs font-bold text-slate-600">Vehicle Details</p>
+                </div>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <a id="custCallBtn" href="#" class="btn btn-green text-[11px] py-1 px-2.5"><i class="fa-solid fa-phone"></i> Call</a>
+                <button class="btn btn-blue text-[11px] py-1 px-2.5" onclick="openLiveChatWindow()"><i class="fa-solid fa-comments"></i> Chat</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 bg-yellow-50 p-3 rounded-2xl border border-blue-300 text-xs text-blue-900 font-bold">
+              <div><span>Ride OTP:</span> <b id="custRideOtp" class="text-blue-600 text-lg block font-black">----</b></div>
+              <div><span>Total Fare:</span> <b id="custRideFare" class="text-blue-900 text-lg block font-black">₹0</b></div>
+              <div class="col-span-2 border-t border-blue-200 pt-2 mt-1">
+                <span><i class="fa-solid fa-clock mr-1"></i> ETA:</span>
+                <p id="custEtaText" class="font-black text-xs text-emerald-600 mt-0.5">Calculating...</p>
+              </div>
+            </div>
+          </div>
+          <button id="btnCancelCustomerBooking" class="btn btn-red w-full text-xs py-2.5" onclick="cancelCustomerBooking()"><i class="fa-solid fa-xmark"></i> Cancel Booking</button>
+        </div>
+
+        <div id="categoryBookingCard" class="card space-y-3">
+          <div class="flex justify-between items-center">
+            <b class="text-sm font-black text-blue-900">Select Vehicle / Service</b>
+            <span class="text-xs font-extrabold text-blue-600">Auto Pricing</span>
+          </div>
+          <div id="categoryGrid" class="grid grid-cols-3 gap-2"></div>
+        </div>
+
+        <div id="customerBookingForm" class="card space-y-3">
+          <div id="customerBookingDetails" class="grid grid-cols-2 gap-2 bg-blue-50 border border-blue-200 rounded-2xl p-3">
+            <b class="col-span-2 text-xs text-blue-900"><i class="fa-solid fa-user mr-1"></i> আপনার নাম ও মোবাইল নম্বর দিন</b>
+            <input id="bookingCustomerName" class="field" placeholder="আপনার নাম">
+            <input id="bookingCustomerPhone" class="field" type="tel" inputmode="numeric" placeholder="মোবাইল নম্বর">
+          </div>
+
+          <div id="parcelFields" class="grid grid-cols-2 gap-2 bg-yellow-50 border border-blue-400 rounded-2xl p-3">
+            <b class="col-span-2 text-xs text-blue-900 flex items-center gap-1"><i class="fa-solid fa-box font-bold"></i> Parcel Details</b>
+            <input id="parcelDescription" class="field col-span-2" placeholder="Item Name & Quantity (যেমন: 5kg মিষ্টি)">
+            <input id="parcelWeight" class="field" placeholder="Size/Weight (যেমন: 5 KG)">
+            <input id="parcelRequiredVehicle" class="field col-span-2" placeholder="Required vehicle (Bike/Auto/Toto/Four Wheeler)" list="parcelVehicleOptions">
+            <datalist id="parcelVehicleOptions"><option value="Any Vehicle"><option value="Bike"><option value="Auto"><option value="Toto"><option value="Four Wheeler"></datalist>
+            <input id="parcelPickupName" class="field" placeholder="Sender Name">
+            <input id="parcelPickupPhone" class="field" type="tel" placeholder="Sender Phone">
+            <input id="parcelReceiverName" class="field" placeholder="Receiver Name">
+            <input id="parcelReceiverPhone" class="field" type="tel" placeholder="Receiver Phone">
+          </div>
+
+          <div id="lorryFields" class="grid grid-cols-2 gap-2 bg-yellow-50 border border-blue-400 rounded-2xl p-3">
+            <b class="col-span-2 text-xs text-blue-900 flex items-center gap-1"><i class="fa-solid fa-truck font-bold"></i> Lorry Details</b>
+            <select id="lorryTypeSelect" class="field col-span-2 text-xs">
+              <option value="Mini Lorry (Small)">Mini Lorry (ছোট লরি - ১-২ টন)</option>
+              <option value="Medium Lorry (6 Wheeler)">Medium Lorry (৬ চাকা লরি - ৩-৫ টন)</option>
+              <option value="Heavy Lorry (10+ Wheeler)">Heavy Lorry (ভারী লরি - ১০+ টন)</option>
+            </select>
+            <input id="lorryMaterialDesc" class="field col-span-2" placeholder="Material Description (যেমন: ইট, রড)">
+            <input id="lorryTonnage" class="field" placeholder="Approx Tonnage (যেমন: 3 Ton)">
+          </div>
+
+          <div id="ambulanceFields" class="grid grid-cols-2 gap-2 bg-red-50 border border-red-400 rounded-2xl p-3">
+            <b class="col-span-2 text-xs text-red-900 flex items-center gap-1"><i class="fa-solid fa-truck-medical font-bold"></i> অ্যাম্বুলেন্স জরুরি তথ্য (Emergency Details)</b>
+            <input id="patientProblem" class="field col-span-2 bg-white" placeholder="রোগীর সমস্যা / রোগের বিবরণ (যেমন: হার্ট অ্যাটাক, শ্বাসকষ্ট)">
+            <input id="hospitalName" class="field col-span-2 bg-white" placeholder="যে হাসপাতালে যেতে হবে তার নাম (Hospital Name)">
+          </div>
+
+          <div class="flex justify-between items-center bg-yellow-50 p-3 rounded-2xl border border-blue-300">
+            <div>
+              <p class="text-[10px] text-blue-800 font-extrabold uppercase">Estimated Distance</p>
+              <b id="displayDistance" class="text-base text-blue-900 font-black">0.0 km</b>
+            </div>
+            <div class="text-right">
+              <p class="text-[10px] text-blue-800 font-extrabold uppercase">Calculated Fare</p>
+              <b id="displayFare" class="text-xl text-blue-600 font-black">₹0</b>
+            </div>
+          </div>
+
+          <button id="btnConfirmBooking" class="btn btn-blue w-full py-3.5 text-sm" onclick="submitBooking()"><i class="fa-solid fa-circle-check"></i> CONFIRM BOOKING</button>
+        </div>
+
+        <div id="customerInstallControls" class="grid grid-cols-2 gap-2">
+          <button class="card text-xs font-black text-center py-3 flex items-center justify-center gap-2 text-blue-900 bg-white border-2 border-blue-600" onclick="triggerPwaInstall()"><i class="fa-solid fa-download text-blue-600 text-base"></i> Install App</button>
+          <button class="card text-xs font-black text-center py-3 flex items-center justify-center gap-2 text-blue-900 bg-white border-2 border-blue-600" onclick="shareDirectApplicationFile()"><i class="fa-solid fa-share-nodes text-blue-600 text-base"></i> Share App</button>
+        </div>
+
+        <div id="customerHistoryPanel" class="card space-y-2">
+          <div class="flex items-center justify-between">
+            <b class="text-sm text-blue-900"><i class="fa-solid fa-clock-rotate-left text-blue-600 mr-1"></i> History (এই ডিভাইসের বুকিং)</b>
+            <button class="btn btn-blue text-[10px] py-1" onclick="loadCustomerHistory()">Refresh</button>
+          </div>
+          <div id="customerHistoryList" class="space-y-2 text-xs text-blue-900 font-bold">Your recent bookings will appear here.</div>
+        </div>
+
+      </div>
+    </section>
+
+    <section id="bookingsView" class="hidden p-3.5 space-y-3.5">
+      <div class="card space-y-3">
+        <div class="flex items-center justify-between">
+          <b class="text-sm">📚 Booking History</b>
+          <button class="btn btn-blue text-xs" onclick="loadCustomerHistory()">Refresh</button>
+        </div>
+        <div id="customerHistoryListPage" class="space-y-2 text-xs font-bold">আপনার বুকিং ইতিহাস এখানে দেখা যাবে।</div>
+      </div>
+    </section>
+
+    <!-- ================= DRIVER VIEW ================= -->
+    <section id="driverView" class="hidden space-y-3.5">
+      <div id="driverLoginBox" class="card space-y-3">
+        <div class="flex justify-between items-center"><h3 class="font-black text-sm text-blue-900 flex items-center gap-2"><i class="fa-solid fa-right-to-bracket text-blue-600"></i> Partner Login</h3><button id="driverAudioToggle" type="button" onclick="togglePanelAudio('driver')" class="w-9 h-9 rounded-full bg-yellow-100 border border-blue-600 text-blue-700 flex items-center justify-center"><i class="fa-solid fa-volume-high"></i></button></div>
+        <input id="loginDrvPhone" class="field" type="tel" placeholder="Mobile Number">
+        <input id="loginDrvPass" class="field" type="password" placeholder="Password">
+        <button class="btn btn-blue w-full text-xs py-3" onclick="loginDriverAccount()"><i class="fa-solid fa-key"></i> Login Dashboard</button>
+        <div class="text-center pt-1">
+          <button class="text-xs font-bold text-blue-600 underline" onclick="showDriverRegisterScreen()">New Driver Registration</button>
+        </div>
+      </div>
+
+      <div id="driverRegisterBox" class="card hidden space-y-3">
+        <h3 class="font-black text-sm text-blue-900 flex items-center gap-2"><i class="fa-solid fa-id-card text-blue-600"></i> Driver Registration</h3>
+        <input id="regDrvName" class="field" placeholder="Full Name">
+        <input id="regDrvPhone" class="field" type="tel" placeholder="Mobile / WhatsApp">
+        <input id="regDrvPass" class="field" type="password" placeholder="Password">
+        <input id="regDrvVehicleNo" class="field" placeholder="Vehicle Reg No (যেমন: WB89C0341)">
+        <select id="regDrvVehicleType" class="field">
+          <option value="Bike">Bike</option>
+          <option value="Parcel">Parcel</option>
+          <option value="Four Wheeler">Four Wheeler</option>
+          <option value="Toto">Toto</option>
+          <option value="Auto">Auto</option>
+          <option value="Lorry">Lorry</option>
+          <option value="Ambulance">Ambulance</option>
+        </select>
+        <div>
+          <label class="block text-[11px] text-blue-800 font-bold mb-1">Upload Driver Photo / Screenshot:</label>
+          <input id="regDrvPhotoFile" type="file" accept="image/*" class="field text-xs py-1 bg-white">
+        </div>
+        <div class="grid grid-cols-2 gap-2"><button class="btn btn-blue text-xs py-3" onclick="submitDriverRegistration()"><i class="fa-solid fa-paper-plane"></i> Register</button><button class="btn btn-yellow text-xs py-3" onclick="showDriverLoginScreen()"><i class="fa-solid fa-right-to-bracket"></i> Login</button></div>
+      </div>
+
+      <div id="driverDashboard" class="card hidden space-y-3.5">
+        <div class="flex justify-between items-center border-b border-blue-200 pb-3">
+          <div class="flex items-center gap-3">
+            <img id="drvProfileAvatar" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" class="w-12 h-12 rounded-full border-2 border-blue-600 object-cover cursor-pointer" onclick="zoomDriverPhoto(this.src)">
+            <div>
+              <h4 id="drvPanelName" class="font-black text-blue-900 text-sm">Welcome, Partner</h4>
+              <p id="drvPanelVehicle" class="text-[11px] font-bold text-slate-600">Vehicle No</p>
+              <p id="drvSubStatusText" class="text-[10px] font-black text-emerald-600 mt-0.5">Subscription: Active</p>
+            </div>
+          </div>
+          <span id="drvOnlineStatusBadge" class="bg-red-100 text-red-600 border border-red-300 px-3 py-1 rounded-full text-xs font-black">Offline</span>
+        </div>
+
+        <div class="bg-yellow-50 border border-blue-300 p-3 rounded-2xl flex justify-between items-center text-xs font-bold text-blue-900">
+          <div>
+            <p class="text-[10px] text-blue-800 uppercase">Total Earnings Today</p>
+            <b id="drvTotalEarnings" class="text-lg text-blue-600 font-black">₹0</b>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] text-blue-800 uppercase">Completed</p>
+            <b id="drvCompletedCount" class="text-lg text-blue-900 font-black">0</b>
+          </div>
+        </div>
+
+        <!-- Driver Subscription & Payment Recharge Box -->
+        <div id="driverSubscriptionBox" class="bg-blue-50 border border-blue-300 p-3 rounded-2xl space-y-2 text-xs font-bold text-blue-900">
+          <div class="flex justify-between items-center">
+            <span>ড্রাইভার সাবস্ক্রিপশন স্ট্যাটাস:</span>
+            <b id="driverSubBadge" class="text-emerald-600">Active</b>
+          </div>
+          <p id="driverSubExpiryText" class="text-[11px] text-slate-700">ফ্রি মোড চালু আছে — যেকোনো ভাড়া গ্রহণ করতে পারবেন।</p>
+          <button class="btn btn-blue w-full text-xs py-2" onclick="openRecharge('driver')"><i class="fa-solid fa-qrcode"></i> সাবস্ক্রিপশন পেমেন্ট করুন</button>
+        </div>
+
+        <button id="btnToggleDriverOnline" class="btn btn-blue w-full text-xs py-3" onclick="toggleDriverOnlineState()"><i class="fa-solid fa-power-off"></i> Go Online</button>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button class="btn btn-yellow text-xs py-2 text-blue-900 font-bold" onclick="openDriverWhatsappGroup()"><i class="fa-brands fa-whatsapp"></i> WhatsApp Group</button>
+          <button class="btn btn-red text-xs py-2" onclick="logoutDriverAccount()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
+
+        <div id="driverActiveRideCard" class="hidden bg-yellow-50 border-2 border-blue-600 p-3.5 rounded-2xl space-y-2.5">
+          <b class="text-xs font-black text-blue-900 flex justify-between items-center">
+            <span><i class="fa-solid fa-route mr-1"></i> Active Job Execution</span>
+            <span id="drvRideStatusTag" class="bg-blue-600 text-white px-2.5 py-0.5 rounded-full text-[10px]">Accepted</span>
+          </b>
+          <div class="text-xs space-y-1 font-bold text-blue-900 bg-white p-2.5 rounded-xl border border-blue-300">
+            <p>Customer: <span id="activeCustName">Name</span> (<a id="activeCustCall" href="#" class="text-blue-600 underline font-black">Call</a>)</p>
+            <p>Fare: <span id="activeCustFare" class="text-blue-600 font-black">₹0</span> | Dist: <span id="activeCustDist">0 km</span></p>
+            
+            <div id="activeAmbulanceInfo" class="hidden text-red-700 border-t border-red-200 pt-1 mt-1">
+              <p>🚨 Patient Problem: <span id="activePatientProblemTxt">None</span></p>
+              <p>🏥 Destination Hospital: <span id="activeHospitalNameTxt">None</span></p>
+            </div>
+
+            <div id="activeParcelInfo" class="hidden text-amber-700 border-t border-blue-200 pt-1 mt-1">
+              <p>📦 Parcel: <span id="activeParcelDesc">Item</span> (<span id="activeParcelWeight">0</span>)</p>
+              <p>Receiver: <span id="activeParcelRecv">Name</span> (<a id="activeParcelRecvCall" href="#" class="underline">Call</a>)</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1.5">
+            <a id="drvNavPickBtn" href="#" target="_blank" class="btn btn-blue text-[11px] py-2 px-1"><i class="fa-solid fa-location-arrow"></i> Pickup</a>
+            <a id="drvNavDropBtn" href="#" target="_blank" class="btn btn-blue text-[11px] py-2 px-1"><i class="fa-solid fa-map-pin"></i> Drop</a>
+            <button class="btn btn-yellow text-[11px] py-2 px-1 text-blue-900 font-bold" onclick="openLiveChatWindow()"><i class="fa-solid fa-comments"></i> Chat</button>
+          </div>
+
+          <div class="space-y-2">
+            <button id="btnArrivedAtPickup" class="btn btn-blue w-full text-xs py-2.5" onclick="markDriverArrived()"><i class="fa-solid fa-flag"></i> Arrived at Pickup</button>
+            <div id="otpStartBox" class="flex gap-2">
+              <input id="inputVerifyOtp" class="field text-xs py-2" placeholder="Enter Customer OTP">
+              <button class="btn btn-green text-xs py-2" onclick="verifyStartRideOtp()"><i class="fa-solid fa-play"></i> Start Ride</button>
+            </div>
+            <button id="btnCompleteRide" class="btn btn-green w-full text-xs py-2.5 hidden" onclick="completeDriverRide()"><i class="fa-solid fa-circle-check"></i> Complete & Collect Cash</button>
+          </div>
+          <button class="btn btn-red w-full text-xs py-2" onclick="driverCancelActiveRide()"><i class="fa-solid fa-xmark"></i> Cancel Job</button>
+        </div>
+
+        <div>
+          <h4 class="font-black text-xs text-blue-900 mb-2"><i class="fa-solid fa-bell text-blue-600 mr-1"></i> Live Incoming Job Requests</h4>
+          <div id="driverRequestsContainer" class="space-y-2">
+            <p class="text-xs text-slate-600 font-bold">নতুন বুকিং এলে এখানে সঙ্গে সঙ্গে ভেসে উঠবে।</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= STORES & MECHANICS SECTION ================= -->
+    <section id="storesView" class="hidden space-y-3.5">
+      <div class="card bg-white border-2 border-blue-600 space-y-3">
+        <div class="flex bg-yellow-100 p-1.5 rounded-xl border border-blue-400">
+          <button id="btnCatShop" class="flex-1 py-2 text-xs font-black rounded-lg bg-blue-600 text-white shadow" onclick="switchStoreMechanicTab('shop')"><i class="fa-solid fa-store mr-1"></i> দোকান ক্যাটাগরি (Shops)</button>
+          <button id="btnCatMech" class="flex-1 py-2 text-xs font-black rounded-lg text-blue-900" onclick="switchStoreMechanicTab('mechanic')"><i class="fa-solid fa-screwdriver-wrench mr-1"></i> মেকানিক ক্যাটাগরি (Mechanics)</button>
+        </div>
+
+        <!-- Shop View Box -->
+        <div id="shopCatalogSection" class="space-y-3">
+          <div class="flex justify-between items-center">
+            <b class="text-sm font-black text-blue-900"><i class="fa-solid fa-store text-blue-600 mr-1"></i> Food & Dream Shops</b>
+            <button class="btn btn-blue text-[10px] py-1" onclick="openStoreRegistrationModal()"><i class="fa-solid fa-plus"></i> List / Login Store</button>
+          </div>
+          <p class="text-[11px] font-bold text-slate-600">দোকানদারের সাথে সরাসরি যোগাযোগ করুন, আপনার পছন্দের জিনিস চয়েস করুন এবং বাড়ি পর্যন্ত নিয়ে আসার জন্য আমাদের অ্যাপ্লিকেশনে পার্সেল বুকিং করুন!</p>
+          <div id="nearbyStoresContainer" class="space-y-2"></div>
+        </div>
+
+        <!-- Mechanic View Box -->
+        <div id="mechanicCatalogSection" class="hidden space-y-3">
+          <div class="flex justify-between items-center">
+            <b class="text-sm font-black text-blue-900"><i class="fa-solid fa-screwdriver-wrench text-blue-600 mr-1"></i> Expert Mechanics Portal</b>
+            <button class="btn btn-blue text-[10px] py-1" onclick="openMechanicRegistrationModal()"><i class="fa-solid fa-user-plus"></i> Mechanic Portal</button>
+          </div>
+          <p class="text-[11px] font-bold text-slate-600">আমাদের এখানে সকল প্রকার মেকানিক পাওয়া যায়। আপনার বাড়ির প্রবলেম সলভ করার জন্য মেকানিককে কল করে ডেকে নিতে পারেন!</p>
+          
+          <div class="grid grid-cols-3 gap-1.5 pt-1">
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('All')">সকল</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Electric')">ইলেক্ট্রিক</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('TV')">টিভি</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Fridge')">ফ্রিজ</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('AC')">এসি</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Home')">বাড়ির কাজ</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Motor')">মোটর</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Pipeline')">পাইপলাইন</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Wiring')">ওয়ারিং</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Meter')">মিটার</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Mobile')">মোবাইল</button>
+            <button class="btn btn-yellow text-[10px] py-1.5 text-blue-900 font-extrabold" onclick="filterMechanics('Computer')">কম্পিউটার</button>
+          </div>
+
+          <div id="nearbyMechanicsContainer" class="space-y-2 pt-2"></div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= STORE REGISTRATION & LOGIN MODAL ================= -->
+  <div id="storeModal" class="modal hidden">
+    <div class="modal-inner space-y-3">
+      <div class="flex justify-between items-center border-b border-blue-200 pb-2">
+        <h3 class="font-black text-blue-900 text-sm flex items-center gap-2"><i class="fa-solid fa-store text-blue-600"></i> Store Portal (নিবন্ধন ও লগইন)</h3>
+        <button onclick="closeStoreModal()" class="text-xl font-bold text-blue-900">×</button>
+      </div>
+
+      <div class="flex bg-yellow-100 p-1 rounded-xl gap-1">
+        <button id="storeTabReg" class="flex-1 py-2 text-xs font-bold rounded-lg bg-blue-600 text-white" onclick="switchStoreModalTab('reg')">Registration</button>
+        <button id="storeTabLogin" class="flex-1 py-2 text-xs font-bold rounded-lg text-blue-900" onclick="switchStoreModalTab('login')">Login & Recharge</button>
+      </div>
+      <div id="storeRegFormBox" class="space-y-2 text-xs font-bold text-blue-900">
+        <div class="rounded-xl bg-blue-50 border border-blue-200 p-2 text-[10px] text-blue-900">🔐 আপনার Phone Number ও Password মনে রাখুন। ভবিষ্যতে Login এবং Subscription-এর জন্য প্রয়োজন হবে।</div>
+        <input id="regStoreName" class="field text-xs" placeholder="Shop Name">
+        <input id="regStorePhone" class="field text-xs" type="tel" placeholder="Phone Number">
+        <input id="regStorePass" class="field text-xs" type="password" placeholder="Create Password">
+        <input id="regStoreAddress" class="field text-xs" placeholder="Address">
+        <div class="grid grid-cols-2 gap-2"><button type="button" class="btn btn-blue text-[11px]" onclick="getStoreCurrentLocation()">📍 GPS Location</button><input id="regStoreMapLink" class="field text-xs" placeholder="Google Maps link"></div>
+        <p id="storeGpsStatus" class="text-[10px] text-slate-600">GPS বা Maps link দিন।</p>
+        <input id="regStoreItems" class="field text-xs" placeholder="Items Available (যেমন: Grocery, Sweets)">
+        <div>
+          <label class="block text-[11px] text-blue-800">Store Photo:</label>
+          <input id="regStorePhotoFile" type="file" accept="image/*" class="field text-xs py-1 bg-white">
+        </div>
+        <button class="btn btn-blue w-full text-xs py-2.5" onclick="submitStoreRegistration()"><i class="fa-solid fa-paper-plane"></i> Submit Store Listing</button>
+      </div>
+      <div id="storeLoginFormBox" class="hidden space-y-2 text-xs font-bold text-blue-900">
+        <div class="rounded-xl bg-blue-50 border border-blue-200 p-2 text-[10px] text-blue-900">Login করতে আপনার ফোন নম্বর ও পাসওয়ার্ড দিন। লগইন করার পর সাবস্ক্রিপশন পেমেন্ট করার প্যানেল ও QR কোড দেখতে পাবেন।</div>
+        <input id="loginStorePhone" class="field text-xs" type="tel" placeholder="Phone Number">
+        <input id="loginStorePass" class="field text-xs" type="password" placeholder="Password">
+        <button class="btn btn-blue w-full text-xs py-2.5" onclick="loginStoreAccount()"><i class="fa-solid fa-right-to-bracket"></i> Login & Open Recharge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MECHANIC REGISTRATION & LOGIN MODAL ================= -->
+  <div id="mechanicModal" class="modal hidden">
+    <div class="modal-inner space-y-3">
+      <div class="flex justify-between items-center border-b border-blue-200 pb-2">
+        <h3 class="font-black text-blue-900 text-sm flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench text-blue-600"></i> Mechanic Portal (নিবন্ধন ও লগইন)</h3>
+        <button onclick="closeMechanicModal()" class="text-xl font-bold text-blue-900">×</button>
+      </div>
+
+      <div class="flex bg-yellow-100 p-1 rounded-xl">
+        <button id="mechTabReg" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white" onclick="switchMechModalTab('reg')">নতুন রেজিস্ট্রেশন</button>
+        <button id="mechTabLog" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-blue-900" onclick="switchMechModalTab('login')">লগইন ও রিচার্জ</button>
+      </div>
+
+      <div id="mechRegFormBox" class="space-y-2 text-xs font-bold text-blue-900">
+        <div class="rounded-xl bg-blue-50 border border-blue-200 p-2 text-[10px] text-blue-900">🔐 ফোন নম্বর ও পাসওয়ার্ড মনে রাখুন।</div>
+        <input id="regMechName" class="field text-xs" placeholder="Full Name (পূর্ণ নাম)">
+        <input id="regMechPhone" class="field text-xs" type="tel" placeholder="Mobile / Phone Number">
+        <input id="regMechPass" class="field text-xs" type="password" placeholder="Password (পাসওয়ার্ড)">
+        <select id="regMechCategory" class="field text-xs">
+          <option value="Electric">ইলেক্ট্রিক মেকানিক (Electric)</option>
+          <option value="TV">টিভি মেকানিক (TV Repair)</option>
+          <option value="Fridge">ফ্রিজ মেকানিক (Fridge Repair)</option>
+          <option value="AC">এসি মেকানিক (AC Repair)</option>
+          <option value="Home">বাড়ির কাজ মেকানিক (Home Maintenance)</option>
+          <option value="Motor">মটর মেকানিক (Motor Repair)</option>
+          <option value="Pipeline">পাইপলাইন মেকানিক (Pipeline)</option>
+          <option value="Wiring">ওয়ারিং মেকানিক (Wiring)</option>
+          <option value="Meter">মিটারের কাজ (Meter Work)</option>
+          <option value="Mobile">মোবাইল রিপেয়ারিং (Mobile Repairing)</option>
+          <option value="Computer">কম্পিউটার রিপেয়ারিং (Computer Repairing)</option>
+        </select>
+        <input id="regMechAddress" class="field text-xs" placeholder="Full Address (ঠিকানা)">
+        <div>
+          <label class="block text-[11px] text-blue-800">Mechanic Photo:</label>
+          <input id="regMechPhotoFile" type="file" accept="image/*" class="field text-xs py-1 bg-white">
+        </div>
+        <button class="btn btn-blue w-full text-xs py-2.5" onclick="submitMechanicRegistration()"><i class="fa-solid fa-paper-plane"></i> Submit Mechanic Registration</button>
+      </div>
+
+      <div id="mechLoginFormBox" class="hidden space-y-2 text-xs font-bold text-blue-900">
+        <div class="rounded-xl bg-blue-50 border border-blue-200 p-2 text-[10px] text-blue-900">লগইন করার পর সাবস্ক্রিপশন পেমেন্ট করার প্যানেল খুলবে।</div>
+        <input id="loginMechPhone" class="field text-xs" type="tel" placeholder="Mobile Number">
+        <input id="loginMechPass" class="field text-xs" type="password" placeholder="Password">
+        <button class="btn btn-blue w-full text-xs py-2.5" onclick="loginMechanicAccount()"><i class="fa-solid fa-right-to-bracket"></i> Login & Open Recharge</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= IN-APP LIVE CHAT MODAL ================= -->
+  <div id="chatModal" class="modal hidden">
+    <div class="modal-inner space-y-3 bg-white">
+      <div class="flex justify-between items-center border-b border-blue-200 pb-2">
+        <h3 class="font-black text-blue-900 text-sm flex items-center gap-2"><i class="fa-solid fa-comments text-blue-600"></i> In-App Live SMS Chat</h3>
+        <button onclick="closeLiveChatWindow()" class="text-xl font-bold text-blue-900">×</button>
+      </div>
+      <div id="chatMessageList" class="space-y-2 h-64 overflow-y-auto p-2 bg-yellow-50 rounded-xl border border-blue-200"></div>
+      <div class="flex gap-2">
+        <input id="chatInputMessage" class="field text-xs" placeholder="Type message...">
+        <button class="btn btn-blue text-xs py-2" onclick="sendInAppChatMessage()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MASTER ADMIN CONTROL PANEL MODAL ================= -->
+  <div id="adminModal" class="modal hidden">
+    <div class="modal-inner space-y-4">
+      <div class="flex justify-between items-center border-b border-blue-200 pb-3">
+        <h3 class="font-black text-blue-900 text-base flex items-center gap-2"><i class="fa-solid fa-user-shield text-blue-600"></i> Admin Master Panel</h3>
+        <button onclick="closeAdminModal()" class="text-xl font-bold text-blue-900">×</button>
+      </div>
+
+      <div id="adminAuthBox" class="space-y-2">
+        <p class="text-xs font-bold text-blue-900">Enter Admin Passcode (লোগোতে ১১ বার ট্যাপ করেও খুলতে পারেন):</p>
+        <input id="adminPassInput" type="password" class="field" placeholder="Secret Passcode">
+        <button class="btn btn-blue w-full text-xs py-2.5" onclick="authenticateAdmin()"><i class="fa-solid fa-key"></i> Authenticate</button>
+      </div>
+
+      <div id="adminContentBox" class="hidden space-y-4 text-xs max-h-[78vh] overflow-y-auto pr-1 text-blue-900">
+        
+        <!-- Live Analytics Counters Box -->
+        <div class="bg-blue-100 p-3 rounded-2xl border-2 border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-chart-line"></i> Advanced Analytics & Counters</b>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-white p-2 rounded-xl border border-blue-300">
+              <span class="text-[10px] text-slate-600 block">Total Active Users / Partners:</span>
+              <b id="statTotalUsers" class="text-base text-blue-900 font-black">0</b>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-blue-300">
+              <span class="text-[10px] text-slate-600 block">Today's Searches:</span>
+              <b id="statTodaySearches" class="text-base text-blue-900 font-black">0</b>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-blue-300">
+              <span class="text-[10px] text-slate-600 block">7 Days Usage:</span>
+              <b id="stat7DaysUsage" class="text-base text-blue-900 font-black">0</b>
+            </div>
+            <div class="bg-white p-2 rounded-xl border border-blue-300">
+              <span class="text-[10px] text-slate-600 block">Total Revenue (1 Month):</span>
+              <b id="statTotalRevenue" class="text-base text-emerald-600 font-black">₹0</b>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-sliders"></i> Branding, Logo, Banners & Global Switches</b>
+          <div>
+            <label class="block text-[11px] text-blue-800">App Brand Name:</label>
+            <input id="admCompanyName" class="field text-xs py-1.5" placeholder="Public Cab">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Upload Logo Image:</label>
+            <input id="admLogoFile" type="file" accept="image/*" class="field text-xs py-1.5 bg-white">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Upload Multiple Banners / Posters (একাধিক ছবি সিলেক্ট করুন):</label>
+            <input id="admBannerFile" type="file" accept="image/*" multiple class="field text-xs py-1.5 bg-white">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Advertisement Target Links (ব্যানারের সাথে যুক্ত করার জন্য কমা দিয়ে লিংক দিন):</label>
+            <input id="admBannerLinks" class="field text-xs py-1.5" placeholder="https://link1.com, https://link2.com">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Company UPI ID:</label>
+            <input id="admCompanyUpi" class="field text-xs py-1.5" placeholder="company@okaxis">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Upload QR Scanner Image:</label>
+            <input id="admQrImageFile" type="file" accept="image/*" class="field text-xs py-1.5 bg-white">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-blue-200">
+            <div>
+              <label class="block text-[10px] text-blue-800">Shop/Mech Timing Switch (সকাল ৮ - রাত ১১):</label>
+              <select id="admShopTimeSwitch" class="field text-xs py-1">
+                <option value="on">ON (Active 8AM-11PM)</option>
+                <option value="off">OFF (24 Hours Open)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-blue-800">Global Subscription Mode (মাস্টার অন/অফ):</label>
+              <select id="admGlobalSubToggle" class="field text-xs py-1">
+                <option value="off">OFF - Free Mode (সবাই ফ্রিতে চলবে)</option>
+                <option value="on">ON - Subscription Required (পেইড সিস্টেম)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[10px] text-blue-800">Driver Monthly Sub. Price (₹):</label>
+              <input id="admDriverSubPrice" class="field text-xs py-1.5" type="number" placeholder="299">
+            </div>
+            <div>
+              <label class="block text-[10px] text-blue-800">Store / Mech Monthly Sub. Price (₹):</label>
+              <input id="admStoreSubPrice" class="field text-xs py-1.5" type="number" placeholder="99">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-blue-200">
+            <div>
+              <label class="block text-[10px] text-blue-800">Payment Gateway Integration (Razorpay/Other):</label>
+              <select id="admPaymentGatewayToggle" class="field text-xs py-1">
+                <option value="manual">Manual UPI / QR</option>
+                <option value="razorpay">Razorpay Gateway Enabled</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] text-blue-800">GST Percentage (% ট্যাক্স):</label>
+              <input id="admGstPercent" class="field text-xs py-1.5" type="number" placeholder="0">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] text-blue-800">Admin WhatsApp Number:</label>
+            <input id="admWhatsappNo" class="field text-xs py-1.5" placeholder="919609546435">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Driver WhatsApp Group Link:</label>
+            <input id="admWaGroupLink" class="field text-xs py-1.5" placeholder="https://chat.whatsapp.com/...">
+          </div>
+          <div>
+            <label class="block text-[11px] text-blue-800">Multi-Website Link Directory:</label>
+            <input id="admMultiWebLinks" class="field text-xs py-1.5" placeholder="https://site1.online, https://site2.online">
+          </div>
+          
+          <div class="border-t border-blue-200 pt-2 space-y-2">
+            <b class="text-blue-900 block text-sm">Vehicle Pricing & Kilometre Rules (ম্যানুয়াল কিমি ও বেস ফেয়ার সেট করুন)</b>
+            <div id="adminVehiclePricing" class="space-y-2"></div>
+          </div>
+
+          <button class="btn btn-blue w-full text-xs py-2" onclick="saveAdminGlobalSettings()"><i class="fa-solid fa-floppy-disk"></i> Save System Config</button>
+        </div>
+
+        <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-file-invoice-dollar"></i> Subscription Payment Approvals (ড্রাইভার, দোকান ও মেকানিক পেমেন্ট)</b>
+          <div id="adminSubscriptionPaymentsList" class="space-y-2 max-h-56 overflow-y-auto"></div>
+        </div>
+
+        <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-store"></i> Registered Stores & Control (দোকান তালিকা)</b>
+          <div id="adminStoresApprovalList" class="space-y-2 max-h-44 overflow-y-auto"></div>
+        </div>
+
+        <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-screwdriver-wrench"></i> Registered Mechanics & Control (মেকানিক তালিকা)</b>
+          <div id="adminMechanicsApprovalList" class="space-y-2 max-h-44 overflow-y-auto"></div>
+        </div>
+
+        <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-600 space-y-2 font-bold">
+          <b class="text-blue-900 block text-sm"><i class="fa-solid fa-car"></i> Partner / Driver Control & Approvals (ড্রাইভার তালিকা)</b>
+          <div id="adminDriversList" class="space-y-2 max-h-44 overflow-y-auto"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating Support Button -->
+  <div class="chat-widget-btn" onclick="openFloatingSupportChat()">
+    <i class="fa-solid fa-headset text-xl"></i>
+  </div>
+
+  <!-- Bottom Navigation Bar -->
+  <div class="bottom-nav">
+    <div id="navHome" class="nav-item active" onclick="switchMainTab('home')"><i class="fa-solid fa-house"></i><span>Home</span></div>
+    <div id="navBookings" class="nav-item" onclick="switchMainTab('bookings')"><i class="fa-solid fa-clock-rotate-left"></i><span>Bookings</span></div>
+    <div id="navDriver" class="nav-item" onclick="switchMainTab('driver')"><i class="fa-solid fa-car"></i><span>Driver</span></div>
+    <div id="navStores" class="nav-item" onclick="switchMainTab('stores')"><i class="fa-solid fa-store"></i><span>Shops</span></div>
+    <div id="navHelp" class="nav-item" onclick="openFloatingSupportChat()"><i class="fa-solid fa-headset"></i><span>Help</span></div>
+  </div>
+
+</div>
+
+<!-- JavaScript Core Application Engine -->
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyDJmu9uD5rT5ee1jNLpMQaTVIa_-yTrPzw",
+  authDomain: "public-service-11054.firebaseapp.com",
+  databaseURL: "https://public-service-11054-default-rtdb.firebaseio.com",
+  projectId: "public-service-11054",
+  storageBucket: "public-service-11054.firebasestorage.app",
+  messagingSenderId: "639313474404",
+  appId: "1:639313474404:web:9ac4645e521021c044c071",
+  measurementId: "G-ZMCRHQ4VC3"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const $ = id => document.getElementById(id);
+
+let defaultVehicleRates = {
+  'Bike': { base: 20, perKm: 8, includedKm: 3, icon: 'fa-motorcycle', img: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=300&auto=format&fit=crop' },
+  'Parcel': { base: 25, perKm: 9, includedKm: 3, icon: 'fa-box', img: 'https://cdn-icons-png.flaticon.com/512/2972/2972531.png' },
+  'Four Wheeler': { base: 50, perKm: 12, includedKm: 3, icon: 'fa-car', img: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=300&auto=format&fit=crop' },
+  'Toto': { base: 25, perKm: 9, includedKm: 3, icon: 'fa-truck-pickup', img: 'https://images.unsplash.com/photo-1519608487953-e999c86e7455?w=300&auto=format&fit=crop' },
+  'Auto': { base: 30, perKm: 10, includedKm: 3, icon: 'fa-taxi', img: 'https://images.unsplash.com/photo-1591768793355-74d04bb6608f?w=300&auto=format&fit=crop' },
+  'Lorry': { base: 100, perKm: 20, includedKm: 3, icon: 'fa-truck', img: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=300&auto=format&fit=crop' },
+  'Ambulance': { base: 150, perKm: 18, includedKm: 3, icon: 'fa-truck-medical', img: 'https://images.unsplash.com/photo-1587745416684-47953f16f02f?w=300&auto=format&fit=crop' }
+};
+
+let vehicleRates = JSON.parse(JSON.stringify(defaultVehicleRates));
+let selectedCategory = 'Bike';
+let map, pickupLatLng = null, dropLatLng = null, mapSelectionMode = 'pickup';
+let pickupMarker = null, dropMarker = null, driverMarker = null, routePolyline = null;
+let currentBookingId = null, logoTapCounter = 0;
+Object.defineProperty(window,'currentBookingId',{configurable:true,get:()=>currentBookingId,set:v=>{currentBookingId=v;}});
+let currentCustomerId = localStorage.getItem('inride_cust_id') || null;
+let currentDriverId = localStorage.getItem('inride_driver_id') || null;
+Object.defineProperty(window,'currentDriverId',{configurable:true,get:()=>currentDriverId,set:v=>{currentDriverId=v;}});
+let driverGpsInterval = null;
+let currentCompanySettings = {};
+let autoSearchTimer = null;
+let deferredPwaPrompt = null;
+let currentMechanicFilter = 'All';
+
+function showCustomPopup(title, msg) {
+  $('customPopupTitle').textContent = title;
+  $('customPopupMessage').innerHTML = msg;
+  $('customPopupModal').classList.remove('hidden');
+}
+function closeCustomPopup() { $('customPopupModal').classList.add('hidden'); }
+
+function zoomDriverPhoto(url) {
+  if(!url) return;
+  $('zoomedImgElement').src = url;
+  $('imageZoomModal').classList.remove('hidden');
+}
+function closeZoomModal() { $('imageZoomModal').classList.add('hidden'); }
+
+function setupDynamicManifest() {
+  const logoUrl = currentCompanySettings.logoUrl || "https://cdn-icons-png.flaticon.com/512/727/727245.png";
+  ['headerLogo','splashLogo'].forEach(id => { const el=$(id); if(el) el.src=logoUrl; });
+  const fav=$('dynamicFavicon'); if(fav) fav.href=logoUrl;
+  const title=currentCompanySettings.companyName || 'Public Cab';
+  document.title=title; if($('headerBrand')) $('headerBrand').textContent=title; if($('splashTitle')) $('splashTitle').textContent=title;
+  
+  const manifestData={name:title,short_name:'PublicCab',start_url:'./',scope:'./',display:'standalone',background_color:'#fef08a',theme_color:'#2563eb',icons:[{src:logoUrl,sizes:'192x192',type:'image/png',purpose:'any'},{src:logoUrl,sizes:'512x512',type:'image/png',purpose:'any'}]};
+  const link=$('manifestPlaceholder'); if(link){if(window._manifestBlobUrl) URL.revokeObjectURL(window._manifestBlobUrl);window._manifestBlobUrl=URL.createObjectURL(new Blob([JSON.stringify(manifestData)],{type:'application/manifest+json'}));link.href=window._manifestBlobUrl;}
+}
+
+function renderBannerCarousel(settings){
+  const defaultBanners = [
+    'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop'
+  ];
+  let list = Array.isArray(settings.banners) ? settings.banners.filter(Boolean) : (settings.bannerUrl ? [settings.bannerUrl] : []);
+  if(!list.length) list = defaultBanners;
+  let links = Array.isArray(settings.bannerLinks) ? settings.bannerLinks : [];
+  
+  const box=$('bannerCarouselBox'), container=$('bannerContainer');
+  box.classList.remove('hidden');
+  container.innerHTML = list.map((url, i) => {
+    let linkTarget = links[i] || '#';
+    return `<div class="banner-slide w-full shrink-0 cursor-pointer" onclick="window.open('${linkTarget}', '_blank')"><img src="${url}" class="w-full h-[108px] object-cover" alt="Banner ${i+1}"></div>`;
+  }).join('');
+}
+
+async function uploadImageToStorageReliable(file, path='uploads'){
+  return new Promise((resolve, reject) => {
+    if(!file) return resolve(null);
+    if(!file.type.startsWith('image/')) return reject(new Error('শুধু ছবি আপলোড করা যাবে।'));
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width, height = img.height;
+        const maxDim = 800;
+        if(width > maxDim || height > maxDim){
+          if(width > height) { height = Math.round((height * maxDim) / width); width = maxDim; }
+          else { width = Math.round((width * maxDim) / height); height = maxDim; }
+        }
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.onerror = () => resolve(reader.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = err => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
+window.addEventListener('beforeinstallprompt', e => { 
+  e.preventDefault(); 
+  deferredPwaPrompt = e; 
+});
+
+function triggerPwaInstall() {
+  if (deferredPwaPrompt) { 
+    deferredPwaPrompt.prompt(); 
+    deferredPwaPrompt.userChoice.then((choiceResult) => { 
+      if (choiceResult.outcome === 'accepted') {
+        showCustomPopup("সফল", "অ্যাপ্লিকেশন ইনস্টল সফল হয়েছে!");
+      }
+      deferredPwaPrompt = null; 
+    });
+  } else { 
+    showCustomPopup("ইনস্টল গাইড", "ব্রাউজারের থ্রি-ডট (⋮) মেনু থেকে \"Install App\" অথবা \"Add to Home Screen\" সিলেক্ট করুন।"); 
+  }
+}
+
+function speakAudioAlert(bengaliText) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const uttr = new SpeechSynthesisUtterance(bengaliText);
+    uttr.lang = 'bn-IN';
+    uttr.rate = 1.0;
+    window.speechSynthesis.speak(uttr);
+  }
+}
+
+function switchTab(tab) {
+  window.currentMainTab=tab;
+  const bannerBox=$('bannerCarouselBox'); if(bannerBox) bannerBox.classList.toggle('hidden',tab==='driver');
+  $('customerView').classList.toggle('hidden', tab !== 'customer');
+  $('driverView').classList.toggle('hidden', tab !== 'driver');
+  $('storesView').classList.add('hidden');
+  $('tabCust').className = 'px-3 py-1.5 rounded-xl font-bold ' + (tab === 'customer' ? 'bg-blue-600 text-white shadow' : 'text-blue-900');
+  $('tabDrv').className = 'px-3 py-1.5 rounded-xl font-bold ' + (tab === 'driver' ? 'bg-blue-600 text-white shadow' : 'text-blue-900');
+  
+  if(tab === 'customer'){
+    speakAudioAlert("পাবলিক ক্যাবে আপনাকে স্বাগতম। সকাল আটটা থেকে রাত এগারোটা পর্যন্ত দোকান এবং মেকানিক সার্ভিস খোলা থাকে। অ্যাম্বুলেন্স ২৪ ঘণ্টা চালু।");
+  }
+  setTimeout(() => map && map.invalidateSize(), 200);
+}
+
+function switchMainTab(section) {
+  $('navHome').classList.remove('active');
+  $('navBookings').classList.remove('active');
+  $('navDriver').classList.remove('active');
+  $('navStores').classList.remove('active');
+  $('customerView').classList.add('hidden'); $('driverView').classList.add('hidden'); $('storesView').classList.add('hidden'); $('bookingsView').classList.add('hidden');
+
+  if (section === 'home') {
+    $('navHome').classList.add('active');
+    $('customerView').classList.remove('hidden'); switchTab('customer');
+  } else if (section === 'bookings') {
+    $('navBookings').classList.add('active');
+    $('bookingsView').classList.remove('hidden');
+    loadCustomerHistory();
+  } else if (section === 'driver') {
+    $('navDriver').classList.add('active');
+    $('driverView').classList.remove('hidden'); switchTab('driver');
+    speakAudioAlert("সতর্কতা! নিজের দায়িত্বে ড্রাইভ করতে হবে। কোনো রকম খারাপ কাজ করলে পুলিশের আওতায় নেওয়া হতে পারে। রেজিস্ট্রেশন নম্বর এবং গাড়ির লোগো ছাড়া অন্য কোনো গাড়ি ব্যবহার করলে তা আইনত অপরাধ।");
+  } else if (section === 'stores') {
+    $('navStores').classList.add('active');
+    $('storesView').classList.remove('hidden');
+    loadNearbyStoresAndShops(null);
+    loadNearbyMechanics(null);
+  }
+}
+
+function initMap() {
+  if (map) return;
+  map = L.map('map').setView([22.5726, 88.3639], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+  map.on('click', e => setMapPoint(mapSelectionMode, [e.latlng.lat, e.latlng.lng]));
+}
+
+function checkAndShowMap() {
+  if (pickupLatLng && dropLatLng) {
+    $('mapContainer').classList.add('show');
+    initMap();
+    calculateRoute();
+  }
+}
+
+function setMapPoint(type, coords) {
+  initMap();
+  if (type === 'pickup') {
+    pickupLatLng = coords;
+    if (pickupMarker) map.removeLayer(pickupMarker);
+    pickupMarker = L.marker(coords).addTo(map).bindPopup('Pickup').openPopup();
+  } else {
+    dropLatLng = coords;
+    if (dropMarker) map.removeLayer(dropMarker);
+    dropMarker = L.marker(coords).addTo(map).bindPopup('Drop').openPopup();
+  }
+  checkAndShowMap();
+}
+
+function getCurrentGpsLocation() {
+  if (!navigator.geolocation) return showCustomPopup("GPS ত্রুটি", "GPS সমর্থিত নয়");
+  navigator.geolocation.getCurrentPosition(pos => {
+    const latlng = [pos.coords.latitude, pos.coords.longitude];
+    setMapPoint('pickup', latlng);
+    $('inputManualPickup').value = "Current Live GPS Location";
+    loadNearbyStoresAndShops(latlng);
+    loadNearbyMechanics(latlng);
+  }, () => showCustomPopup("অনুমতি ত্রুটি", "লোকেশন পারমিশন দিন।"), { enableHighAccuracy: true });
+}
+
+async function calculateRoute() {
+  if (!pickupLatLng || !dropLatLng) return;
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${pickupLatLng[1]},${pickupLatLng[0]};${dropLatLng[1]},${dropLatLng[0]}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.routes && data.routes[0]) {
+      const route = data.routes[0];
+      const distKm = route.distance / 1000;
+      const pts = route.geometry.coordinates.map(c => [c[1], c[0]]);
+      if (routePolyline) map.removeLayer(routePolyline);
+      routePolyline = L.polyline(pts, { color: '#2563eb', weight: 5 }).addTo(map);
+      map.fitBounds(routePolyline.getBounds().pad(0.2));
+      updateFareCalculation(distKm);
+    }
+  } catch (e) {
+    const dist = getStraightDistanceKm(pickupLatLng, dropLatLng);
+    updateFareCalculation(dist);
+  }
+}
+
+function getStraightDistanceKm(p1, p2) {
+  const rad = x => x * Math.PI / 180;
+  const dLat = rad(p2[0] - p1[0]), dLon = rad(p2[1] - p1[1]);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(p1[0])) * Math.cos(rad(p2[0])) * Math.sin(dLon / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function updateFareCalculation(km) {
+  const r = vehicleRates[selectedCategory] || vehicleRates['Bike'];
+  const included = Number(r.includedKm || 3);
+  let fare = Number(r.base || 20);
+  if (km > included) fare += Math.ceil((km - included) * Number(r.perKm || 8));
+  
+  // Apply GST if configured
+  const gstPercent = Number(currentCompanySettings.gstPercent || 0);
+  if(gstPercent > 0) {
+    fare += Math.round((fare * gstPercent) / 100);
+  }
+
+  $('displayDistance').textContent = km.toFixed(2) + ' km';
+  $('displayFare').textContent = '₹' + fare;
+}
+
+function renderCategoryGrid() {
+  const keys = Object.keys(vehicleRates);
+  $('categoryGrid').innerHTML = keys.map(k => {
+    const r = vehicleRates[k];
+    return `<div class="cat-card ${selectedCategory === k ? 'active' : ''}" onclick="selectCategory('${k}')">
+      <img class="vehicle-photo" src="${r.img}" alt="${k}">
+      <div class="font-black text-[11px]">${k}</div>
+      <div class="text-[9px] font-bold">₹${r.base} Base</div>
+    </div>`;
+  }).join('');
+}
+
+function selectCategory(cat) {
+  selectedCategory = cat;
+  renderCategoryGrid();
+  $('parcelFields').classList.toggle('show', cat === 'Parcel');
+  $('lorryFields').classList.toggle('show', cat === 'Lorry');
+  $('ambulanceFields').classList.toggle('show', cat === 'Ambulance');
+  
+  if (cat === 'Ambulance') {
+    speakAudioAlert("জরুরি সেবা অ্যাম্বুলেন্স সার্ভিস ২৪ ঘণ্টার জন্য সম্পূর্ণ এভেলেবেল। অ্যাম্বুলেন্স সার্ভিস কখনো বন্ধ হবে না।");
+  } else if (cat === 'Parcel') {
+    speakAudioAlert("আইনি ব্যবস্থায় যেসব জিনিস পরিবহন করা বারণ, তা ডেলিভারি করবেন না।");
+  }
+  
+  if (pickupLatLng && dropLatLng) calculateRoute();
+}
+
+function handleAddressAutoSearch(inputId) {
+  clearTimeout(autoSearchTimer);
+  const q = $(inputId).value.trim();
+  const sugBox = $(inputId + 'Suggestions');
+  if (q.length < 3) { sugBox.classList.add('hidden'); return; }
+
+  autoSearchTimer = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (data && data.length) {
+        sugBox.innerHTML = data.map(item => `
+          <div class="autocomplete-item" onclick="selectAddressLocation('${inputId}', ${item.lat}, ${item.lon}, '${item.display_name.replace(/'/g, "")}')">
+            ${item.display_name}
+          </div>
+        `).join('');
+        sugBox.classList.remove('hidden');
+      }
+    } catch (e) {}
+  }, 400);
+}
+
+function selectAddressLocation(inputId, lat, lon, name) {
+  $(inputId).value = name;
+  $(inputId + 'Suggestions').classList.add('hidden');
+  const type = inputId === 'inputManualPickup' ? 'pickup' : 'drop';
+  const latlng = [parseFloat(lat), parseFloat(lon)];
+  setMapPoint(type, latlng);
+  if (type === 'pickup') {
+    loadNearbyStoresAndShops(latlng);
+    loadNearbyMechanics(latlng);
+  }
+}
+
+function isServiceWithinTiming() {
+  if (currentCompanySettings.shopTimeSwitch === 'off') return true;
+  const now = new Date();
+  const hour = now.getHours();
+  return hour >= 8 && hour < 23;
+}
+
+function switchStoreMechanicTab(type) {
+  if (type === 'shop') {
+    $('btnCatShop').className = 'flex-1 py-2 text-xs font-black rounded-lg bg-blue-600 text-white shadow';
+    $('btnCatMech').className = 'flex-1 py-2 text-xs font-black rounded-lg text-blue-900';
+    $('shopCatalogSection').classList.remove('hidden');
+    $('mechanicCatalogSection').classList.add('hidden');
+    speakAudioAlert("দোকানদারের সাথে যোগাযোগ করো। আপনার পছন্দের জিনিস চয়েস করুন এবং বাড়ি পর্যন্ত নিয়ে আসার জন্য পার্সেল বুকিং করুন।");
+  } else {
+    $('btnCatMech').className = 'flex-1 py-2 text-xs font-black rounded-lg bg-blue-600 text-white shadow';
+    $('btnCatShop').className = 'flex-1 py-2 text-xs font-black rounded-lg text-blue-900';
+    $('mechanicCatalogSection').classList.remove('hidden');
+    $('shopCatalogSection').classList.add('hidden');
+    speakAudioAlert("আমাদের এখানে সকল প্রকার মেকানিক পাওয়া যায়। আপনার বাড়ির প্রবলেম সলভ করার জন্য মেকানিককে কল করে ডেকে নিতে পারেন।");
+  }
+}
+
+// Nearby Stores & Shops with Global & Individual Subscription Check
+function loadNearbyStoresAndShops(currentCoords) {
+  db.ref('stores').on('value', snap => {
+    const stores = snap.val() || {};
+    const allowed = isServiceWithinTiming();
+    const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+    let html = '';
+    
+    Object.values(stores).forEach(st => {
+      if (st.status === 'Approved') {
+        let dist = currentCoords ? getStraightDistanceKm(currentCoords, st.latlng || [22.57, 88.36]).toFixed(1) : '0.0';
+        let mapNavUrl = `https://www.google.com/maps/dir/?api=1&destination=${st.latlng?st.latlng[0]:22.57},${st.latlng?st.latlng[1]:88.36}`;
+        
+        let subActive = Number(st.subscriptionExpiry || 0) > Date.now();
+        let isSuspended = globalSubOn && !subActive;
+
+        html += `
+          <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-300 flex items-center gap-3 shadow-sm ${isSuspended ? 'opacity-60 bg-red-50' : ''}">
+            <img src="${st.photoUrl || 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png'}" class="w-14 h-14 object-cover rounded-xl border-2 border-blue-600 bg-white cursor-pointer" onclick="zoomDriverPhoto(this.src)">
+            <div class="flex-1 text-xs space-y-1">
+              <b class="text-blue-900 text-sm block font-black">${st.name} ${isSuspended ? '<span class="text-red-600 text-[10px]">(Suspended)</span>' : ''}</b>
+              <p class="text-slate-700 font-bold">${st.items} · <span class="text-emerald-600 font-extrabold">${dist} km away</span></p>
+              <p class="text-[10px] text-blue-800 font-semibold">${st.address}</p>
+              ${!allowed ? '<span class="text-[10px] text-red-600 font-black block">⏰ সময়সীমা শেষ (সকাল ৮ - রাত ১১)</span>' : ''}
+              ${isSuspended ? '<span class="text-[10px] text-red-600 font-black block">🔒 সাবস্ক্রিপশন প্রয়োজন</span>' : ''}
+            </div>
+            <div class="flex flex-col gap-1.5">
+              ${(!isSuspended && allowed) ? `<a href="tel:${st.phone}" class="btn btn-green text-[11px] py-1.5 px-3"><i class="fa-solid fa-phone"></i> Call</a>` : '<span class="text-[9px] text-red-600 font-bold">No Call</span>'}
+              ${!isSuspended ? `<a href="${mapNavUrl}" target="_blank" class="btn btn-blue text-[11px] py-1.5 px-2 text-center"><i class="fa-solid fa-location-arrow"></i> Map</a>` : '<span class="text-[9px] text-red-600 font-bold">No Map</span>'}
+            </div>
+          </div>
+        `;
+      }
+    });
+    $('nearbyStoresContainer').innerHTML = html || '<p class="text-xs text-slate-600 font-bold">কোনো দোকান লিস্টিং নেই।</p>';
+  });
+}
+
+function filterMechanics(cat) {
+  currentMechanicFilter = cat;
+  loadNearbyMechanics(null);
+}
+
+function loadNearbyMechanics(currentCoords) {
+  db.ref('mechanics').on('value', snap => {
+    const mechs = snap.val() || {};
+    const allowed = isServiceWithinTiming();
+    const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+    let html = '';
+
+    Object.values(mechs).forEach(m => {
+      if (m.status === 'Approved') {
+        if (currentMechanicFilter !== 'All' && m.category !== currentMechanicFilter) return;
+        let dist = currentCoords ? getStraightDistanceKm(currentCoords, m.latlng || [22.57, 88.36]).toFixed(1) : '0.0';
+        
+        let subActive = Number(m.subscriptionExpiry || 0) > Date.now();
+        let isSuspended = globalSubOn && !subActive;
+
+        html += `
+          <div class="bg-yellow-50 p-3 rounded-2xl border border-blue-300 flex items-center gap-3 shadow-sm ${isSuspended ? 'opacity-60 bg-red-50' : ''}">
+            <img src="${m.photoUrl || 'https://cdn-icons-png.flaticon.com/512/149/149071.png'}" class="w-14 h-14 object-cover rounded-xl border-2 border-blue-600 bg-white cursor-pointer" onclick="zoomDriverPhoto(this.src)">
+            <div class="flex-1 text-xs space-y-1">
+              <b class="text-blue-900 text-sm block font-black">${m.name} ${isSuspended ? '<span class="text-red-600 text-[10px]">(Suspended)</span>' : ''}</b>
+              <p class="text-blue-700 font-extrabold">Category: ${m.category} · <span class="text-emerald-600">${dist} km</span></p>
+              <p class="text-[10px] text-slate-700 font-semibold">${m.address}</p>
+              ${!allowed ? '<span class="text-[10px] text-red-600 font-black block">⏰ সময়সীমা শেষ (সকাল ৮ - রাত ১১)</span>' : ''}
+              ${isSuspended ? '<span class="text-[10px] text-red-600 font-black block">🔒 সাবস্ক্রিপশন প্রয়োজন</span>' : ''}
+            </div>
+            <div>
+              ${(!isSuspended && allowed) ? `<a href="tel:${m.phone}" class="btn btn-green text-[11px] py-2 px-3"><i class="fa-solid fa-phone"></i> Call</a>` : '<span class="text-[9px] text-red-600 font-bold">No Call</span>'}
+            </div>
+          </div>
+        `;
+      }
+    });
+    $('nearbyMechanicsContainer').innerHTML = html || '<p class="text-xs text-slate-600 font-bold">এই ক্যাটাগরিতে কোনো মেকানিক পাওয়া যায়নি।</p>';
+  });
+}
+
+function openStoreRegistrationModal() { $('storeModal').classList.remove('hidden'); }
+function closeStoreModal() { $('storeModal').classList.add('hidden'); }
+
+let storeLatLng = null;
+function getStoreCurrentLocation(){
+  if(!navigator.geolocation) return showCustomPopup('GPS ত্রুটি','GPS নেই।');
+  navigator.geolocation.getCurrentPosition(pos=>{storeLatLng=[pos.coords.latitude,pos.coords.longitude];$('storeGpsStatus').textContent=`GPS সেট হয়েছে`;},()=>showCustomPopup('GPS','লোকেশন পারমিশন দিন।'),{enableHighAccuracy:true});
+}
+
+async function submitStoreRegistration(){
+  const name=$('regStoreName').value.trim(), phone=$('regStorePhone').value.trim(), pass=$('regStorePass').value, address=$('regStoreAddress').value.trim(), items=$('regStoreItems').value.trim(), file=$('regStorePhotoFile').files[0];
+  if(!name||!phone||!pass||!address) return showCustomPopup('অসম্পূর্ণ','সব তথ্য এবং Password দিন।');
+  let coords=storeLatLng || [22.57, 88.36];
+  const id='store_'+phone.replace(/\D/g,'');
+  try{
+    const photoUrl=file?await uploadImageToStorageReliable(file):'';
+    await db.ref('stores/'+id).set({id,name,phone,address,items,photoUrl,password:pass,latlng:coords,status:'Pending',subscriptionExpiry:0,createdAt:Date.now()});
+    showCustomPopup('সফল','দোকানের তথ্য জমা হয়েছে। অ্যাডমিন অ্যাপ্রুভ করার পর লগইন ও রিচার্জ করতে পারবেন।');
+    closeStoreModal();
+  }catch(e){showCustomPopup('ব্যর্থ',e.message);}
+}
+
+async function loginStoreAccount(){
+  const phone=$('loginStorePhone').value.trim(), pass=$('loginStorePass').value;
+  if(!phone||!pass) return showCustomPopup('ত্রুটি','ফোন নম্বর ও পাসওয়ার্ড দিন।');
+  const id='store_'+phone.replace(/\D/g,'');
+  const snap=await db.ref('stores/'+id).once('value');
+  const st=snap.val();
+  if(!st||st.password!==pass) return showCustomPopup('লগইন ব্যর্থ','ভুল তথ্য দেওয়া হয়েছে।');
+  localStorage.setItem('publiccab_store_id', id);
+  closeStoreModal();
+  openPartnerRechargeModal('store', id, st.name);
+}
+
+function openMechanicRegistrationModal() { $('mechanicModal').classList.remove('hidden'); }
+function closeMechanicModal() { $('mechanicModal').classList.add('hidden'); }
+
+function switchStoreModalTab(mode){
+  $('storeRegFormBox').classList.toggle('hidden', mode !== 'reg');
+  $('storeLoginFormBox').classList.toggle('hidden', mode !== 'login');
+  $('storeTabReg').className = 'flex-1 py-2 text-xs font-bold rounded-lg ' + (mode === 'reg' ? 'bg-blue-600 text-white' : 'text-blue-900');
+  $('storeTabLogin').className = 'flex-1 py-2 text-xs font-bold rounded-lg ' + (mode === 'login' ? 'bg-blue-600 text-white' : 'text-blue-900');
+}
+
+function switchMechModalTab(mode) {
+  $('mechRegFormBox').classList.toggle('hidden', mode !== 'reg');
+  $('mechLoginFormBox').classList.toggle('hidden', mode !== 'login');
+  $('mechTabReg').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg ' + (mode === 'reg' ? 'bg-blue-600 text-white' : 'text-blue-900');
+  $('mechTabLog').className = 'flex-1 py-1.5 text-xs font-bold rounded-lg ' + (mode === 'login' ? 'bg-blue-600 text-white' : 'text-blue-900');
+}
+
+async function submitMechanicRegistration() {
+  const name=$('regMechName').value.trim(), phone=$('regMechPhone').value.trim(), pass=$('regMechPass').value, cat=$('regMechCategory').value, address=$('regMechAddress').value.trim(), file=$('regMechPhotoFile').files[0];
+  if(!name||!phone||!pass) return showCustomPopup('অসম্পূর্ণ','নাম, ফোন ও পাসওয়ার্ড দিন।');
+  const id='mech_'+phone.replace(/\D/g,'');
+  try{
+    const photoUrl=file?await uploadImageToStorageReliable(file):'';
+    await db.ref('mechanics/'+id).set({id,name,phone,password:pass,category:cat,address,photoUrl,status:'Pending',subscriptionExpiry:0,createdAt:Date.now()});
+    showCustomPopup('সফল','মেকানিক রেজিস্ট্রেশন জমা হয়েছে! অ্যাডমিন অ্যাপ্রুভ করার পর লগইন করতে পারবেন।');
+    closeMechanicModal();
+  }catch(e){showCustomPopup('ব্যর্থ',e.message);}
+}
+
+async function loginMechanicAccount() {
+  const phone=$('loginMechPhone').value.trim(), pass=$('loginMechPass').value;
+  if(!phone||!pass) return showCustomPopup('ত্রুটি','নম্বর ও পাসওয়ার্ড দিন।');
+  const id='mech_'+phone.replace(/\D/g,'');
+  const snap=await db.ref('mechanics/'+id).once('value');
+  const m=snap.val();
+  if(!m || m.password !== pass) return showCustomPopup('লগইন ব্যর্থ','ভুল তথ্য দেওয়া হয়েছে।');
+  localStorage.setItem('publiccab_mechanic_id', id);
+  closeMechanicModal();
+  openPartnerRechargeModal('mechanic', id, m.name);
+}
+
+// Universal Partner Subscription with Days Selection (1, 7, 15, 30 Days) & Razorpay support check
+function openPartnerRechargeModal(type, entityId, entityName) {
+  const st = currentCompanySettings || {};
+  const upi = st.upiId || '9609546435@mbik';
+  const qr = st.qrImageUrl || '';
+  const basePrice = type === 'driver' ? (st.driverSubPrice || 299) : (st.storeSubPrice || 99);
+  const gatewayMode = st.paymentGateway || 'manual';
+
+  let paymentBoxHtml = '';
+  if(gatewayMode === 'razorpay') {
+    paymentBoxHtml = `<div class="bg-emerald-50 p-3 rounded-xl border border-emerald-300 text-center space-y-2">
+      <b class="text-emerald-800 text-xs block">Razorpay Automatic Gateway Active</b>
+      <button class="btn btn-green w-full text-xs py-2.5" onclick="processRazorpayPayment('${type}','${entityId}','${entityName}', ${basePrice})">Pay Online via Razorpay</button>
+    </div>`;
+  } else {
+    paymentBoxHtml = `<div class="space-y-2">
+      <p class="text-xs">পেমেন্ট করার জন্য নিচের UPI ID-তে বা QR স্ক্যান করে পেমেন্ট করুন। দিন সিলেক্ট করে UTR / Transaction ID এবং স্ক্রিনশট জমা দিন।</p>
+      <div class="bg-blue-50 p-2.5 rounded-xl border border-blue-200">
+        <b class="text-blue-900 block text-xs">Company UPI ID:</b>
+        <span class="text-blue-600 font-black text-sm select-all">${upi}</span>
+      </div>
+      ${qr ? `<div class="text-center"><img src="${qr}" class="w-32 h-32 mx-auto object-contain border rounded-xl" alt="QR"></div>` : ''}
+      <input id="modalRechargeTxn" class="field text-xs" placeholder="Enter Transaction ID / UTR">
+      <input id="modalRechargeProof" type="file" accept="image/*" class="field text-xs bg-white py-1">
+      <button class="btn btn-green w-full text-xs py-2.5" onclick="submitPartnerRecharge('${type}','${entityId}','${entityName}', ${basePrice})">Submit Payment Proof</button>
+    </div>`;
+  }
+
+  showCustomPopup(
+    `${entityName} — Subscription Recharge`,
+    `<div class="space-y-3 text-left">
+      <div>
+        <label class="block text-[11px] font-bold text-blue-900">Select Duration (মেয়াদ):</label>
+        <select id="modalRechargeDays" class="field text-xs">
+          <option value="1">1 Day (১ দিন)</option>
+          <option value="7">7 Days (৭ দিন)</option>
+          <option value="15">15 Days (১৫ দিন)</option>
+          <option value="30" selected>30 Days (১ মাস - ₹${basePrice})</option>
+        </select>
+      </div>
+      ${paymentBoxHtml}
+    </div>`
+  );
+}
+
+function processRazorpayPayment(type, entityId, entityName, basePrice) {
+  const days = parseInt($('modalRechargeDays').value) || 30;
+  let calcAmount = Math.round((basePrice / 30) * days) * 100; // in paisa
+  showCustomPopup("পেমেন্ট গেটওয়ে", "Razorpay লাইভ মোড সংযুক্ত হচ্ছে... (ডেমো মোডে পেমেন্ট সফল হিসেবে প্রসেস করা হলো)");
+  setTimeout(() => {
+    approveSubscriptionPaymentDirect(type, entityId, days);
+  }, 1500);
+}
+
+async function submitPartnerRecharge(type, entityId, entityName, basePrice) {
+  const txn = $('modalRechargeTxn').value.trim();
+  const days = parseInt($('modalRechargeDays').value) || 30;
+  const file = $('modalRechargeProof').files[0];
+  if(!txn || !file) return showCustomPopup('অসম্পূর্ণ', 'Transaction ID এবং পেমেন্ট স্ক্রিনশট দিন।');
+  
+  let calcAmount = Math.round((basePrice / 30) * days);
+
+  try {
+    const proofUrl = await uploadImageToStorageReliable(file, 'payments');
+    const reqId = 'req_' + Date.now();
+    await db.ref('subscriptionPayments/' + reqId).set({
+      id: reqId, type, entityId, partnerName: entityName, durationDays: days, amount: calcAmount, transactionId: txn, proofUrl, status: 'Pending', createdAt: Date.now()
+    });
+    closeCustomPopup();
+    showCustomPopup('সফল', 'পেমেন্ট প্রমাণ জমা হয়েছে! অ্যাডমিন অ্যাপ্রুভ করার সাথে সাথে আপনার সার্ভিস সক্রিয় হয়ে যাবে।');
+  } catch(e) {
+    showCustomPopup('ব্যর্থ', e.message);
+  }
+}
+
+async function approveSubscriptionPaymentDirect(type, entityId, durationDays) {
+  const days = Number(durationDays) || 30;
+  const expiry = Date.now() + (days * 24 * 60 * 60 * 1000);
+  if (type === 'driver') {
+    await db.ref('drivers/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+  } else if (type === 'store') {
+    await db.ref('stores/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+  } else if (type === 'mechanic') {
+    await db.ref('mechanics/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+  }
+  closeCustomPopup();
+  showCustomPopup('সফল', `সাবস্ক্রিপশন সফলভাবে ${days} দিনের জন্য সক্রিয় করা হয়েছে!`);
+}
+
+function showDriverLoginScreen(){ $('driverRegisterBox').classList.add('hidden'); $('driverLoginBox').classList.remove('hidden'); }
+
+async function submitDriverRegistration(){
+  const name=$('regDrvName').value.trim(), phone=$('regDrvPhone').value.trim(), pass=$('regDrvPass').value, vehicleNo=$('regDrvVehicleNo').value.trim(), vehicleType=$('regDrvVehicleType').value, file=$('regDrvPhotoFile').files[0];
+  if(!name||!phone||!pass||!vehicleNo) return showCustomPopup('অসম্পূর্ণ','সব তথ্য দিন।');
+  const id='drv_'+phone.replace(/\D/g,'');
+  try{
+    const photo=file?await uploadImageToStorageReliable(file):'';
+    await db.ref('drivers/'+id).set({id,name,phone,password:pass,vehicleNo,vehicleType,photo,status:'Pending',online:false,subscriptionExpiry:0,createdAt:Date.now()});
+    showCustomPopup('সফল','রেজিস্ট্রেশন জমা হয়েছে। অ্যাডমিন অনুমোদনের পর লগইন করতে পারবেন।');
+    $('driverRegisterBox').classList.add('hidden'); $('driverLoginBox').classList.remove('hidden');
+  }catch(e){showCustomPopup('ব্যর্থ',e.message);}
+}
+
+async function loginDriverAccount(){
+  const phone=$('loginDrvPhone').value.trim(), pass=$('loginDrvPass').value;
+  if(!phone||!pass) return showCustomPopup('ত্রুটি','নম্বর ও পাসওয়ার্ড দিন।');
+  const snap=await db.ref('drivers/drv_'+phone.replace(/\D/g,'')).once('value');
+  const d=snap.val();
+  if(!d) return showCustomPopup('লগইন ব্যর্থ','অ্যাকাউন্ট নেই।');
+  if(d.status!=='Approved') return showCustomPopup('অপেক্ষা','অ্যাডমিন এখনো অ্যাপ্রুভ করেনি।');
+  if(d.password && d.password !== pass) return showCustomPopup('লগইন ব্যর্থ','ভুল পাসওয়ার্ড।');
+  
+  currentDriverId=d.id; localStorage.setItem('inride_driver_id',d.id); verifyDriverAccountState(d.id);
+}
+
+function verifyDriverAccountState(drvId) {
+  db.ref('drivers/' + drvId).on('value', snap => {
+    const d = snap.val();
+    if (!d) return;
+    $('driverLoginBox').classList.add('hidden');
+    $('driverDashboard').classList.remove('hidden');
+    $('drvPanelName').textContent = `Welcome, ${d.name}`;
+    $('drvPanelVehicle').textContent = `${d.vehicleType} · ${d.vehicleNo}`;
+    if (d.photo) $('drvProfileAvatar').src = d.photo;
+    
+    const activeSub = Number(d.subscriptionExpiry || 0) > Date.now();
+    const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+
+    if (globalSubOn && !activeSub) {
+      $('drvSubBadge').textContent = 'Inactive / Subscription Required';
+      $('driverSubExpiryText').textContent = '⚠️ সাবস্ক্রিপশন মেয়াদ শেষ! ভাড়া তুলতে পেমেন্ট করুন।';
+    } else {
+      $('driverSubBadge').textContent = 'Active';
+      $('driverSubExpiryText').textContent = activeSub ? `মেয়াদ শেষ: ${new Date(d.subscriptionExpiry).toLocaleDateString()}` : 'ফ্রি মোড চালু আছে।';
+    }
+
+    loadDriverIncomingRequests(d);
+    checkActiveDriverRide(drvId);
+    loadDriverEarningsSummary(drvId);
+  });
+}
+
+function loadDriverEarningsSummary(drvId) {
+  db.ref('rides').on('value', snap => {
+    const rides = snap.val() || {};
+    let totalEarnings = 0;
+    let completedCount = 0;
+    
+    Object.values(rides).forEach(r => {
+      if (r.driverId === drvId && r.status === 'Completed') {
+        completedCount++;
+        totalEarnings += Number(r.fare || 0);
+      }
+    });
+
+    $('drvTotalEarnings').textContent = '₹' + totalEarnings;
+    $('drvCompletedCount').textContent = completedCount;
+  });
+}
+
+function openRecharge(type) {
+  if (type === 'driver' && currentDriverId) {
+    db.ref('drivers/' + currentDriverId).once('value', s => {
+      const d = s.val() || {};
+      openPartnerRechargeModal('driver', currentDriverId, d.name || 'Driver');
+    });
+  }
+}
+
+function toggleDriverOnlineState() {
+  if (!currentDriverId) return;
+  const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+  
+  db.ref('drivers/' + currentDriverId).once('value', s => {
+    const d = s.val() || {};
+    const activeSub = Number(d.subscriptionExpiry || 0) > Date.now();
+    if (globalSubOn && !activeSub) {
+      return showCustomPopup("সাবস্ক্রিপশন প্রয়োজন", "আপনার সাবস্ক্রিপশন মেয়াদ শেষ! অনলাইন যাওয়ার আগে পেমেন্ট করুন।");
+    }
+
+    db.ref('drivers/' + currentDriverId + '/online').transaction(v => !v).then(res => {
+      const on = res.snapshot.val();
+      $('drvOnlineStatusBadge').textContent = on ? 'Online' : 'Offline';
+      $('drvOnlineStatusBadge').className = `px-3 py-1 rounded-full text-xs font-black ${on ? 'bg-emerald-100 text-emerald-600 border border-emerald-300' : 'bg-red-100 text-red-600 border border-red-300'}`;
+      $('btnToggleDriverOnline').innerHTML = on ? '<i class="fa-solid fa-power-off"></i> Go Offline' : '<i class="fa-solid fa-power-off"></i> Go Online';
+      if (on) startDriverGpsTracking();
+      else if (driverGpsInterval) clearInterval(driverGpsInterval);
+    });
+  });
+}
+
+function startDriverGpsTracking() {
+  const syncLoc = () => {
+    if (navigator.geolocation && currentDriverId) {
+      navigator.geolocation.getCurrentPosition(p => {
+        db.ref('drivers/' + currentDriverId + '/location').set({ lat: p.coords.latitude, lng: p.coords.longitude, updatedAt: Date.now() });
+      }, null, { enableHighAccuracy: true });
+    }
+  };
+  syncLoc();
+  if (driverGpsInterval) clearInterval(driverGpsInterval);
+  driverGpsInterval = setInterval(syncLoc, 2000);
+}
+
+function openDriverWhatsappGroup() {
+  window.open(currentCompanySettings.waGroupLink || 'https://chat.whatsapp.com/', '_blank');
+}
+
+function openFloatingSupportChat() {
+  const supNo = currentCompanySettings.whatsappNo || "9609546435";
+  window.open(`https://wa.me/91${supNo}?text=Hello%20Support`, '_blank');
+}
+
+function loadDriverIncomingRequests(drv) {
+  db.ref('rides').on('value', snap => {
+    const rides = snap.val() || {};
+    const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+    const activeSub = Number(drv.subscriptionExpiry || 0) > Date.now();
+    
+    let html = '';
+    Object.keys(rides).forEach(id => {
+      const r = rides[id];
+      const isParcelForAll = (r.category === 'Parcel');
+      const isAmbulanceForAll = (r.category === 'Ambulance');
+      const isMatchingCat = (r.category === drv.vehicleType);
+
+      if (r.status === 'Searching' && (isParcelForAll || isAmbulanceForAll || isMatchingCat)) {
+        let canAccept = !globalSubOn || activeSub;
+        html += `<div class="bg-white p-3 rounded-2xl border border-blue-300 text-xs space-y-1.5 shadow ${!canAccept ? 'opacity-60 bg-red-50' : ''}">
+          <div class="flex justify-between font-black text-blue-900">
+            <span>${r.customerName} (${r.customerPhone})</span>
+            <span class="text-blue-600">₹${r.fare}</span>
+          </div>
+          <p class="text-blue-900 font-bold">Category: ${r.category} | Dist: ${r.distance}</p>
+          ${r.ambulanceDetails ? `<p class="text-red-700 font-bold">🚨 Patient: ${r.ambulanceDetails.patientProblem} -> ${r.ambulanceDetails.hospitalName}</p>` : ''}
+          ${r.parcelDetails ? `<p class="text-amber-700 font-bold">📦 Parcel: ${r.parcelDetails.desc}</p>` : ''}
+          ${canAccept ? `<button class="btn btn-green w-full text-xs py-2" onclick="acceptDriverRide('${r.id}')"><i class="fa-solid fa-check"></i> Accept Request</button>` : '<b class="text-red-600 block text-center">🔒 সাবস্ক্রিপশন পেমেন্ট করুন ভাড়া তুলতে!</b>'}
+        </div>`;
+      }
+    });
+    $('driverRequestsContainer').innerHTML = html || `<p class="text-xs text-blue-900 font-bold">কোনো রিকোয়েস্ট নেই।</p>`;
+  });
+}
+
+function acceptDriverRide(rideId) {
+  db.ref('drivers/' + currentDriverId).once('value', snap => {
+    const drv = snap.val() || {};
+    const globalSubOn = currentCompanySettings.globalSubscriptionMode === 'on';
+    const activeSub = Number(drv.subscriptionExpiry || 0) > Date.now();
+    if (globalSubOn && !activeSub) {
+      return showCustomPopup("ব্লকড", "আপনার সাবস্ক্রিপশন মেয়াদ শেষ! ভাড়া গ্রহণ করতে পারবেন না।");
+    }
+
+    db.ref('rides/' + rideId).update({
+      status: 'Accepted', driverId: currentDriverId, driverName: drv.name, driverPhone: drv.phone, driverVehicle: drv.vehicleNo, driverPhoto: drv.photo || ''
+    }).then(() => checkActiveDriverRide(currentDriverId));
+  });
+}
+
+function checkActiveDriverRide(drvId) {
+  db.ref('rides').on('value', snap => {
+    const rides = snap.val() || {};
+    const active = Object.values(rides).find(r => r.driverId === drvId && ['Accepted', 'Arrived', 'InProgress'].includes(r.status));
+
+    if (active) {
+      currentBookingId = active.id;
+      $('driverActiveRideCard').classList.remove('hidden');
+      $('drvRideStatusTag').textContent = active.status;
+      $('activeCustName').textContent = active.customerName;
+      $('activeCustCall').href = `tel:${active.customerPhone}`;
+      $('activeCustFare').textContent = '₹' + active.fare;
+      $('activeCustDist').textContent = active.distance;
+
+      if (active.ambulanceDetails) {
+        $('activeAmbulanceInfo').classList.remove('hidden');
+        $('activePatientProblemTxt').textContent = active.ambulanceDetails.patientProblem;
+        $('activeHospitalNameTxt').textContent = active.ambulanceDetails.hospitalName;
+      } else {
+        $('activeAmbulanceInfo').classList.add('hidden');
+      }
+
+      $('drvNavPickBtn').href = `https://www.google.com/maps/dir/?api=1&destination=${active.pickupLatLng[0]},${active.pickupLatLng[1]}`;
+      $('drvNavDropBtn').href = `https://www.google.com/maps/dir/?api=1&destination=${active.dropLatLng[0]},${active.dropLatLng[1]}`;
+
+      $('btnArrivedAtPickup').classList.toggle('hidden', active.status !== 'Accepted');
+      $('otpStartBox').classList.toggle('hidden', active.status !== 'Arrived');
+      $('btnCompleteRide').classList.toggle('hidden', active.status !== 'InProgress');
+    } else $('driverActiveRideCard').classList.add('hidden');
+  });
+}
+
+function markDriverArrived() { if (currentBookingId) db.ref('rides/' + currentBookingId).update({ status: 'Arrived' }); }
+function verifyStartRideOtp() {
+  const otp = $('inputVerifyOtp').value.trim();
+  if (!currentBookingId) return;
+  db.ref('rides/' + currentBookingId).once('value', snap => {
+    const r = snap.val();
+    if (r && r.otp === otp) db.ref('rides/' + currentBookingId).update({ status: 'InProgress' });
+    else showCustomPopup("ওটিপি ভুল", "ভুল OTP!");
+  });
+}
+function completeDriverRide() { if (currentBookingId) db.ref('rides/' + currentBookingId).update({ status: 'Completed', completedAt: Date.now() }); }
+function driverCancelActiveRide() { if (currentBookingId && confirm('বাতিল করবেন?')) db.ref('rides/' + currentBookingId).update({ status: 'CancelledByDriver' }); }
+function logoutDriverAccount() {
+  if (currentDriverId) db.ref('drivers/' + currentDriverId + '/online').set(false);
+  localStorage.removeItem('inride_driver_id'); currentDriverId = null;
+  $('driverDashboard').classList.add('hidden'); $('driverLoginBox').classList.remove('hidden');
+}
+
+function shareDirectApplicationFile() {
+  const shareUrl = window.location.href;
+  if (navigator.share) navigator.share({ title: "Public Cab", text: "Download Public Cab App:", url: shareUrl });
+  else { navigator.clipboard.writeText(shareUrl); showCustomPopup("শেয়ার", "লিংক কপি হয়েছে!"); }
+}
+
+// Master Admin Control Panel with Secret Password 78764825555
+function handleLogoTap() {
+  logoTapCounter++;
+  if (logoTapCounter >= 11) { logoTapCounter = 0; $('adminModal').classList.remove('hidden'); }
+}
+function closeAdminModal() { $('adminModal').classList.add('hidden'); }
+
+function authenticateAdmin() {
+  const enteredPass = $('adminPassInput').value.trim();
+  if (enteredPass === '78764825555') {
+    $('adminAuthBox').classList.add('hidden');
+    $('adminContentBox').classList.remove('hidden');
+    fetchAdminDashboardData();
+  } else {
+    // Hidden passcode safety: never reveal original passcode
+    showCustomPopup("ভুল পাসওয়ার্ড", "অ্যাডমিন পাসওয়ার্ড সঠিক নয়।");
+  }
+}
+
+async function saveAdminGlobalSettings(){
+  const bannersArr = Array.from($('admBannerFile').files || []);
+  const linksRaw = $('admBannerLinks').value.trim();
+  const bannerLinksArr = linksRaw ? linksRaw.split(',').map(s => s.trim()) : [];
+
+  const updateObj={
+    companyName:$('admCompanyName').value.trim(),
+    whatsappNo:$('admWhatsappNo').value.trim(),
+    waGroupLink:$('admWaGroupLink').value.trim(),
+    multiWebLinks:$('admMultiWebLinks').value.trim(),
+    upiId:$('admCompanyUpi').value.trim(),
+    shopTimeSwitch:$('admShopTimeSwitch').value,
+    globalSubscriptionMode:$('admGlobalSubToggle').value,
+    driverSubPrice:Number($('admDriverSubPrice').value||0),
+    storeSubPrice:Number($('admStoreSubPrice').value||0),
+    paymentGateway:$('admPaymentGatewayToggle').value,
+    gstPercent:Number($('admGstPercent').value||0),
+    bannerLinks: bannerLinksArr,
+    vehicleRates:collectVehiclePricing(),
+    updatedAt:Date.now()
+  };
+  const logo=$('admLogoFile').files[0], qr=$('admQrImageFile').files[0];
+  try{
+    if(logo) updateObj.logoUrl=await uploadImageToStorageReliable(logo,'branding');
+    if(qr) updateObj.qrImageUrl=await uploadImageToStorageReliable(qr,'branding');
+    if(bannersArr.length) {
+      updateObj.banners = await Promise.all(bannersArr.map(f=>uploadImageToStorageReliable(f,'banners')));
+    }
+    await db.ref('settings').update(updateObj);
+    showCustomPopup('সফল', 'অ্যাডমিন সেটিংস ও প্রাইসিং সফলভাবে সংরক্ষিত হয়েছে!');
+  }catch(e){showCustomPopup('ব্যর্থ',e.message);}
+}
+
+function renderVehiclePricing(){
+  const box=$('adminVehiclePricing'); if(!box) return;
+  box.innerHTML = Object.keys(defaultVehicleRates).map(k => {
+    const r = vehicleRates[k] || defaultVehicleRates[k];
+    return `<div class="grid grid-cols-4 gap-1 bg-white p-2 rounded-lg border border-blue-200 items-center">
+      <b class="text-[10px]">${k}</b>
+      <input class="field text-[10px] py-1" type="number" id="rateBase_${k.replace(/\s/g,'_')}" value="${r.base}" placeholder="Base ₹">
+      <input class="field text-[10px] py-1" type="number" id="ratePerKm_${k.replace(/\s/g,'_')}" value="${r.perKm}" placeholder="Per KM ₹">
+      <input class="field text-[10px] py-1" type="number" id="rateInc_${k.replace(/\s/g,'_')}" value="${r.includedKm}" placeholder="Inc KM">
+    </div>`;
+  }).join('');
+}
+
+function collectVehiclePricing(){
+  const out = {};
+  Object.keys(defaultVehicleRates).forEach(k => {
+    const x = k.replace(/\s/g,'_');
+    out[k] = {
+      ...defaultVehicleRates[k],
+      base: Number($('rateBase_'+x)?.value || defaultVehicleRates[k].base),
+      perKm: Number($('ratePerKm_'+x)?.value || defaultVehicleRates[k].perKm),
+      includedKm: Number($('rateInc_'+x)?.value || defaultVehicleRates[k].includedKm)
+    };
+  });
+  return out;
+}
+
+function fetchAdminDashboardData() {
+  db.ref('settings').on('value', snap => {
+    const s = snap.val() || {};
+    currentCompanySettings = s;
+    if(s.vehicleRates){ vehicleRates = s.vehicleRates; renderVehiclePricing(); }
+    if(s.companyName) { $('headerBrand').textContent = s.companyName; $('docTitle').textContent = s.companyName; $('admCompanyName').value = s.companyName; }
+    if(s.logoUrl) setupDynamicManifest();
+    renderBannerCarousel(s);
+    if(s.whatsappNo) $('admWhatsappNo').value = s.whatsappNo;
+    if(s.waGroupLink) $('admWaGroupLink').value = s.waGroupLink;
+    if(s.multiWebLinks) $('admMultiWebLinks').value = s.multiWebLinks;
+    if(s.upiId) $('admCompanyUpi').value = s.upiId;
+    if(s.shopTimeSwitch) $('admShopTimeSwitch').value = s.shopTimeSwitch;
+    if(s.globalSubscriptionMode && $('admGlobalSubToggle')) $('admGlobalSubToggle').value = s.globalSubscriptionMode;
+    if(s.paymentGateway && $('admPaymentGatewayToggle')) $('admPaymentGatewayToggle').value = s.paymentGateway;
+    if(s.gstPercent && $('admGstPercent')) $('admGstPercent').value = s.gstPercent;
+    if(s.bannerLinks && $('admBannerLinks')) $('admBannerLinks').value = s.bannerLinks.join(', ');
+  });
+
+  // Calculate & Display Analytics Counters & Lists
+  Promise.all([
+    db.ref('rides').once('value'),
+    db.ref('drivers').once('value'),
+    db.ref('stores').once('value'),
+    db.ref('mechanics').once('value'),
+    db.ref('subscriptionPayments').once('value')
+  ]).then(([ridesSnap, drvSnap, storeSnap, mechSnap, paySnap]) => {
+    const rides = ridesSnap.val() || {};
+    const drvs = drvSnap.val() || {};
+    const stores = storeSnap.val() || {};
+    const mechs = mechSnap.val() || {};
+    const payments = paySnap.val() || {};
+
+    let totalUsers = Object.keys(drvs).length + Object.keys(stores).length + Object.keys(mechs).length;
+    let todaySearches = 0;
+    let usage7Days = 0;
+    let totalRevenue = 0;
+
+    const now = Date.now();
+    const oneDay = 24 * 60 * 60 * 1000;
+    const sevenDays = 7 * oneDay;
+
+    Object.values(rides).forEach(r => {
+      const t = Number(r.createdTimestamp || 0);
+      if (now - t < oneDay) todaySearches++;
+      if (now - t < sevenDays) usage7Days++;
+    });
+
+    Object.values(payments).forEach(p => {
+      if (p.status === 'Approved') totalRevenue += Number(p.amount || 0);
+    });
+
+    $('statTotalUsers').textContent = totalUsers;
+    $('statTodaySearches').textContent = todaySearches;
+    $('stat7DaysUsage').textContent = usage7Days;
+    $('statTotalRevenue').textContent = '₹' + totalRevenue;
+  });
+
+  // Admin Subscription Payment Approvals
+  db.ref('subscriptionPayments').on('value', snap => {
+    const reqs = snap.val() || {};
+    let html = '';
+    Object.values(reqs).forEach(req => {
+      html += `<div class="bg-white p-2.5 rounded-xl text-xs space-y-1 border border-blue-200 shadow-sm">
+        <b>${req.partnerName || req.type} (${req.type}) - ${req.durationDays || 30} Days (₹${req.amount || 0})</b>
+        <p>Transaction ID / UTR: <span class="text-blue-600 font-black">${req.transactionId}</span></p>
+        ${req.proofUrl ? `<a href="${req.proofUrl}" target="_blank" class="text-blue-700 underline block font-bold">View Screenshot</a>` : ''}
+        <p>Status: <span class="${req.status==='Approved'?'text-emerald-600':'text-amber-600'} font-black">${req.status}</span></p>
+        ${req.status === 'Pending' ? `<button class="btn btn-green text-[10px] py-1 px-3 mt-1" onclick="approveSubscriptionPayment('${req.id}', '${req.type}', '${req.entityId}', ${req.durationDays || 30})">Approve & Activate</button>` : ''}
+      </div>`;
+    });
+    $('adminSubscriptionPaymentsList').innerHTML = html || '<p class="text-xs text-slate-500">কোনো পেমেন্ট রিকোয়েস্ট নেই।</p>';
+  });
+
+  db.ref('stores').on('value', snap => {
+    const stores = snap.val() || {};
+    $('adminStoresApprovalList').innerHTML = Object.values(stores).map(st => `
+      <div class="bg-white p-2.5 rounded-xl text-xs space-y-1 border border-blue-200">
+        <b class="text-blue-900">${st.name} (${st.phone}) - Status: ${st.status}</b>
+        <p class="text-[10px]">Sub Expiry: ${st.subscriptionExpiry > Date.now() ? new Date(st.subscriptionExpiry).toLocaleDateString() : 'Expired'}</p>
+        <div class="flex gap-1 pt-1">
+          <button class="btn btn-green text-[10px] py-1 px-2" onclick="db.ref('stores/${st.id}/status').set('Approved')">Approve</button>
+          <button class="btn btn-yellow text-[10px] py-1 px-2" onclick="db.ref('stores/${st.id}/status').set('Suspended')">Suspend</button>
+          <button class="btn btn-red text-[10px] py-1 px-2" onclick="db.ref('stores/${st.id}').remove()">Delete</button>
+        </div>
+      </div>
+    `).join('') || 'কোনো দোকান লিস্টিং নেই।';
+  });
+
+  db.ref('mechanics').on('value', snap => {
+    const mechs = snap.val() || {};
+    $('adminMechanicsApprovalList').innerHTML = Object.values(mechs).map(m => `
+      <div class="bg-white p-2.5 rounded-xl text-xs space-y-1 border border-blue-200">
+        <b class="text-blue-900">${m.name} (${m.phone}) - [${m.category}] - ${m.status}</b>
+        <p class="text-[10px]">Sub Expiry: ${m.subscriptionExpiry > Date.now() ? new Date(m.subscriptionExpiry).toLocaleDateString() : 'Expired'}</p>
+        <div class="flex gap-1 pt-1">
+          <button class="btn btn-green text-[10px] py-1 px-2" onclick="db.ref('mechanics/${m.id}/status').set('Approved')">Approve</button>
+          <button class="btn btn-yellow text-[10px] py-1 px-2" onclick="db.ref('mechanics/${m.id}/status').set('Suspended')">Suspend</button>
+          <button class="btn btn-red text-[10px] py-1 px-2" onclick="db.ref('mechanics/${m.id}').remove()">Delete</button>
+        </div>
+      </div>
+    `).join('') || 'কোনো মেকানিক নেই।';
+  });
+
+  db.ref('drivers').on('value', snap => {
+    const drvs = snap.val() || {};
+    $('adminDriversList').innerHTML = Object.values(drvs).map(d => `
+      <div class="bg-white p-2.5 rounded-xl text-xs space-y-1 border border-blue-200">
+        <b class="text-blue-900">${d.name} (${d.phone}) - ${d.vehicleNo} - ${d.status}</b>
+        <p class="text-[10px]">Sub Expiry: ${d.subscriptionExpiry > Date.now() ? new Date(d.subscriptionExpiry).toLocaleDateString() : 'Expired'}</p>
+        <div class="flex gap-1 pt-1">
+          <button class="btn btn-green text-[10px] py-1 px-2" onclick="db.ref('drivers/${d.id}/status').set('Approved')">Approve</button>
+          <button class="btn btn-yellow text-[10px] py-1 px-2" onclick="db.ref('drivers/${d.id}/status').set('Suspended')">Suspend</button>
+          <button class="btn btn-red text-[10px] py-1 px-2" onclick="db.ref('drivers/${d.id}').remove()">Delete</button>
+        </div>
+      </div>
+    `).join('') || 'কোনো ড্রাইভার নেই।';
+  });
+}
+
+async function approveSubscriptionPayment(reqId, type, entityId, durationDays) {
+  try {
+    const days = Number(durationDays) || 30;
+    const expiry = Date.now() + (days * 24 * 60 * 60 * 1000);
+    await db.ref('subscriptionPayments/' + reqId).update({ status: 'Approved', approvedAt: Date.now() });
+    if (type === 'driver') {
+      await db.ref('drivers/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+    } else if (type === 'store') {
+      await db.ref('stores/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+    } else if (type === 'mechanic') {
+      await db.ref('mechanics/' + entityId).update({ subscriptionExpiry: expiry, subscriptionActive: true });
+    }
+    showCustomPopup('সফল', `পেমেন্ট অ্যাপ্রুভ হয়েছে এবং অ্যাকাউন্ট ${days} দিনের জন্য সক্রিয় করা হয়েছে!`);
+  } catch(e) {
+    showCustomPopup('ত্রুটি', e.message);
+  }
+}
+
+// Device-Specific Private History (1 Hour Window)
+function loadCustomerHistory() {
+  let deviceKey = localStorage.getItem('publiccab_device_history_id');
+  if(!deviceKey){
+    deviceKey = 'pcdev_' + Math.random().toString(36).substring(2) + Date.now();
+    localStorage.setItem('publiccab_device_history_id', deviceKey);
+  }
+
+  db.ref('rides').once('value', snap => {
+    const rides = snap.val() || {};
+    const now = Date.now();
+    const rows = Object.values(rides).filter(r => {
+      const t = Number(r.createdTimestamp || 0);
+      return r.customerId === currentCustomerId || (now - t < 3600000);
+    });
+
+    const markup = rows.length ? rows.map(r => `
+      <div class="bg-yellow-50 p-3 rounded-xl border border-blue-300 space-y-1">
+        <div class="flex justify-between font-black text-blue-900">
+          <span>${r.category} · ₹${r.fare}</span>
+          <span class="text-emerald-600">${r.status}</span>
+        </div>
+        <p class="text-blue-900 text-[11px]">Driver: <b>${r.driverName || 'Not Assigned'}</b></p>
+      </div>
+    `).join('') : 'এই ডিভাইসে কোনো সাম্প্রতিক বুকিং নেই।';
+
+    if($('customerHistoryList')) $('customerHistoryList').innerHTML = markup;
+    if($('customerHistoryListPage')) $('customerHistoryListPage').innerHTML = markup;
+  });
+}
+
+// Instant Customer Booking & Submission
+function submitBooking() {
+  if (!pickupLatLng || !dropLatLng) return showCustomPopup("লোকেশন ত্রুটি", "পিকআপ এবং ড্রপ লোকেশন সেট করুন।");
+  
+  const name = $('bookingCustomerName').value.trim();
+  const phone = $('bookingCustomerPhone').value.trim();
+  if(!name || phone.length < 10) return showCustomPopup("তথ্য প্রয়োজন", "বুকিংয়ের জন্য আপনার নাম ও সঠিক মোবাইল নম্বর দিন।");
+
+  const cId = 'cust_' + phone;
+  currentCustomerId = cId;
+  localStorage.setItem('inride_cust_id', cId);
+
+  const distStr = $('displayDistance').textContent;
+  let fareAmt = parseInt($('displayFare').textContent.replace('₹','')) || 50;
+
+  const otp = String(Math.floor(1000 + Math.random() * 9000));
+  const bId = 'ride_' + Date.now();
+  const nowIso = new Date().toLocaleString('en-IN');
+
+  const bookingData = {
+    id: bId, customerId: cId, customerName: name, customerPhone: phone,
+    pickupLatLng, dropLatLng, category: selectedCategory, distance: distStr, fare: fareAmt, otp, status: 'Searching', createdTimestamp: Date.now(), dateTimeStr: nowIso
+  };
+
+  if (selectedCategory === 'Ambulance') {
+    bookingData.ambulanceDetails = {
+      patientProblem: $('patientProblem').value.trim() || 'Emergency Patient',
+      hospitalName: $('hospitalName').value.trim() || 'Hospital'
+    };
+  } else if (selectedCategory === 'Parcel') {
+    bookingData.parcelDetails = {
+      desc: $('parcelDescription').value.trim() || 'Parcel',
+      weight: $('parcelWeight').value.trim() || '1 Unit',
+      senderName: $('parcelPickupName').value.trim() || name,
+      senderPhone: $('parcelPickupPhone').value.trim() || phone,
+      receiverName: $('parcelReceiverName').value.trim() || 'Receiver',
+      receiverPhone: $('parcelReceiverPhone').value.trim() || ''
+    };
+  } else if (selectedCategory === 'Lorry') {
+    bookingData.lorryDetails = {
+      lorryType: $('lorryTypeSelect').value,
+      material: $('lorryMaterialDesc').value.trim() || 'Goods',
+      tonnage: $('lorryTonnage').value.trim() || '1 Ton'
+    };
+  }
+
+  db.ref('rides/' + bId).set(bookingData).then(() => {
+    currentBookingId = bId;
+    const adminPhone = currentCompanySettings.whatsappNo || "9609546435";
+    const waMsg = encodeURIComponent(`🚨 NEW BOOKING (${selectedCategory.toUpperCase()})\nCustomer: ${name} (${phone})\nFare: ₹${fareAmt}`);
+    
+    showCustomPopup("বুকিং কনফার্ম", "ড্রাইভার অ্যাসাইন করার জন্য WhatsApp-এ মেসেজ পাঠান!");
+    setTimeout(() => { window.open(`https://wa.me/91${adminPhone}?text=${waMsg}`, '_blank'); }, 1500);
+
+    speakAudioAlert('আপনার বুকিং গৃহীত হয়েছে।');
+    trackCustomerRideState(bId);
+  });
+}
+
+function trackCustomerRideState(bId) {
+  $('customerRideCard').classList.remove('hidden');
+  $('customerSearchState').classList.remove('hidden');
+  $('customerMatchedState').classList.add('hidden');
+
+  db.ref('rides/' + bId).on('value', snap => {
+    const r = snap.val();
+    if (!r) return;
+
+    if (['Accepted', 'Arrived', 'InProgress'].includes(r.status)) {
+      $('customerSearchState').classList.add('hidden');
+      $('customerMatchedState').classList.remove('hidden');
+      $('customerView').classList.add('booking-locked');
+
+      $('custDriverName').textContent = r.driverName || 'Partner';
+      $('custVehicleDetails').textContent = `${r.category} · ${r.driverVehicle || ''}`;
+      $('custCallBtn').href = `tel:${r.driverPhone}`;
+      if (r.driverPhoto) $('custDriverProfileImg').src = r.driverPhoto;
+      $('custRideOtp').textContent = r.otp;
+      $('custRideFare').textContent = '₹' + r.fare;
+
+      if (r.driverId && map) {
+        db.ref('drivers/' + r.driverId + '/location').on('value', locSnap => {
+          const l = locSnap.val();
+          if (l) {
+            const dCoords = [l.lat, l.lng];
+            if (driverMarker) map.removeLayer(driverMarker);
+            driverMarker = L.marker(dCoords, {
+              icon: L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3202/3202926.png', iconSize: [36, 36] })
+            }).addTo(map);
+
+            const liveDist = getStraightDistanceKm(dCoords, r.status === 'InProgress' ? r.dropLatLng : r.pickupLatLng);
+            const mins=Math.max(1,Math.round(liveDist/0.35)); $('custEtaText').textContent = `${liveDist.toFixed(2)} km away · প্রায় ${mins} মিনিট`;
+          }
+        });
+      }
+    } else if (r.status === 'Completed') {
+      speakAudioAlert('আপনার যাত্রা সম্পন্ন হয়েছে। ধন্যবাদ!');
+      $('customerView').classList.remove('booking-locked');
+      $('customerRideCard').classList.add('hidden');
+      loadCustomerHistory();
+    } else if (r.status && r.status.includes('Cancelled')) {
+      showCustomPopup("বাতিল", "রাইডটি বাতিল করা হয়েছে।");
+      $('customerView').classList.remove('booking-locked');
+      $('customerRideCard').classList.add('hidden');
+      loadCustomerHistory();
+    }
+  });
+}
+
+function cancelCustomerBooking() {
+  if (!currentBookingId) return;
+  db.ref('rides/' + currentBookingId).once('value', snap => {
+    const r = snap.val();
+    if (r && r.status === 'Searching') {
+      db.ref('rides/' + currentBookingId + '/status').set('Cancelled');
+      $('customerView').classList.remove('booking-locked');
+      $('customerRideCard').classList.add('hidden');
+      showCustomPopup("বাতিল", "বুকিং বাতিল করা হয়েছে।");
+    } else {
+      showCustomPopup("সতর্কতা", "ড্রাইভার বুকিং গ্রহণ করার পর কাস্টমার বুকিং বাতিল করতে পারবেন না।");
+    }
+  });
+}
+
+window.addEventListener('load', () => {
+  renderCategoryGrid();
+  setTimeout(() => $('splash').classList.add('hidden'), 1000);
+  db.ref('settings').on('value', snap => {
+    currentCompanySettings = snap.val() || {};
+    setupDynamicManifest(); 
+    renderBannerCarousel(currentCompanySettings);
+  });
+});
+</script>
+</body>
+</html>
+{
+  "name": "Public Cab",
+  "short_name": "PublicCab",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fef08a",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open('public-cab-v1').then((cache) => {
+      return cache.addAll(['./', './index.html']);
+    })
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((response) => {
+      return response || fetch(e.request);
+    })
+  );
+});
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open('public-cab-v1').then((cache) => {
+      return cache.addAll(['./', './index.html']);
+    })
+  );
+});
+
+self.addEventListener('fetch', (e) => {
+  e.respondWith(
+    caches.match(e.request).then((response) => {
+      return response || fetch(e.request);
+    })
+  );
+});
